@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Autocomplete,
   Box,
@@ -8,6 +8,7 @@ import {
   CssBaseline,
   FormControl,
   Grid,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -22,6 +23,8 @@ import {
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 
@@ -38,25 +41,17 @@ const dashboardTheme = createTheme({
 
 export default function DashboardTriagem() {
   const navigate = useNavigate();
-  const [triagens, setTriagens] = useState([]);
+  const [triagens, setTriagens] = useState(() => {
+    try {
+      const triagensLocalStorage = JSON.parse(localStorage.getItem("triagens_at") || "[]");
+      return Array.isArray(triagensLocalStorage) ? triagensLocalStorage : [];
+    } catch {
+      return [];
+    }
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [operadorFilter, setOperadorFilter] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
-
-  useEffect(() => {
-    let triagensLocalStorage = [];
-
-    try {
-      triagensLocalStorage = JSON.parse(localStorage.getItem("triagens_at") || "[]");
-      if (!Array.isArray(triagensLocalStorage)) {
-        triagensLocalStorage = [];
-      }
-    } catch {
-      triagensLocalStorage = [];
-    }
-
-    setTriagens(triagensLocalStorage);
-  }, []);
 
   const operadorOptions = useMemo(() => {
     const operadores = triagens
@@ -92,6 +87,27 @@ export default function DashboardTriagem() {
       const quantidade = Number(equipamento.quantidade) || 0;
       return total + quantidade;
     }, 0);
+  };
+
+  const handleDelete = (id) => {
+    const confirmar = window.confirm("Tem certeza que deseja excluir este registro?");
+
+    if (!confirmar) {
+      return;
+    }
+
+    const triagensAtualizadas = triagens.filter((triagem) => triagem.id !== id);
+    setTriagens(triagensAtualizadas);
+    localStorage.setItem("triagens_at", JSON.stringify(triagensAtualizadas));
+  };
+
+  const handleEdit = (triagem) => {
+    if (!triagem?.id) {
+      alert("Registro sem ID. Nao foi possivel abrir a edicao.");
+      return;
+    }
+
+    navigate(`/editar/${triagem.id}`);
   };
 
   return (
@@ -175,6 +191,9 @@ export default function DashboardTriagem() {
                   Equipamentos
                 </TableCell>
                 <TableCell sx={{ color: "common.white", fontWeight: 700 }}>Status</TableCell>
+                <TableCell sx={{ color: "common.white", fontWeight: 700 }}>
+                  Acoes
+                </TableCell>
               </TableRow>
             </TableHead>
 
@@ -195,11 +214,27 @@ export default function DashboardTriagem() {
                         variant="filled"
                       />
                     </TableCell>
+                    <TableCell>
+                      <IconButton
+                        color="primary"
+                        aria-label="Editar triagem"
+                        onClick={() => handleEdit(triagem)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton
+                        color="error"
+                        aria-label="Excluir triagem"
+                        onClick={() => handleDelete(triagem.id)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                     Nenhuma triagem encontrada para os filtros informados.
                   </TableCell>
                 </TableRow>

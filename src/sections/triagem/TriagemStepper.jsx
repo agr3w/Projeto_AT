@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Autocomplete,
   Box,
@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   conteudoOptions,
   defeitoOptions,
@@ -39,10 +40,87 @@ const createInitialFormData = () => ({
 });
 
 export default function TriagemStepper() {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState(createInitialFormData());
+  const [isEditing, setIsEditing] = useState(false);
 
   const isLastStep = useMemo(() => activeStep === steps.length - 1, [activeStep]);
+
+  const isStepValid = (step, data) => {
+    if (step === 0) {
+      return Boolean(data.data?.trim() && data.codigoRastreio?.trim());
+    }
+
+    if (step === 1) {
+      return data.equipamentos.some(
+        (equipamento) =>
+          Boolean(equipamento.conteudo?.trim()) &&
+          Boolean(equipamento.macAddress?.trim()) &&
+          Number(equipamento.quantidade) > 0,
+      );
+    }
+
+    if (step === 2) {
+      return Boolean(data.operador?.trim() && data.motivo?.trim() && data.defeito?.trim());
+    }
+
+    if (step === 3) {
+      return Boolean(data.numeroChamado?.trim());
+    }
+
+    return false;
+  };
+
+  const canProceedCurrentStep = useMemo(
+    () => isStepValid(activeStep, formData),
+    [activeStep, formData],
+  );
+
+  useEffect(() => {
+    if (!id) {
+      setIsEditing(false);
+      return;
+    }
+
+    let triagensSalvas = [];
+
+    try {
+      triagensSalvas = JSON.parse(localStorage.getItem("triagens_at") || "[]");
+      if (!Array.isArray(triagensSalvas)) {
+        triagensSalvas = [];
+      }
+    } catch {
+      triagensSalvas = [];
+    }
+
+    const triagemEncontrada = triagensSalvas.find(
+      (triagem) => String(triagem.id) === String(id),
+    );
+
+    if (!triagemEncontrada) {
+      alert("Triagem nao encontrada para edicao.");
+      navigate("/dashboard");
+      return;
+    }
+
+    setFormData({
+      ...createInitialFormData(),
+      ...triagemEncontrada,
+      equipamentos:
+        Array.isArray(triagemEncontrada.equipamentos) &&
+        triagemEncontrada.equipamentos.length > 0
+          ? triagemEncontrada.equipamentos.map((equipamento) => ({
+              conteudo: equipamento.conteudo || "",
+              quantidade: Number(equipamento.quantidade) > 0 ? Number(equipamento.quantidade) : 1,
+              macAddress: equipamento.macAddress || "",
+            }))
+          : [{ conteudo: "", quantidade: 1, macAddress: "" }],
+    });
+    setIsEditing(true);
+    setActiveStep(0);
+  }, [id, navigate]);
 
   const handleChange = (field) => (event) => {
     const value =
@@ -56,6 +134,40 @@ export default function TriagemStepper() {
 
   const handleNext = () => {
     if (isLastStep) {
+      if (isEditing) {
+        let triagensSalvas = [];
+
+        try {
+          triagensSalvas = JSON.parse(localStorage.getItem("triagens_at") || "[]");
+          if (!Array.isArray(triagensSalvas)) {
+            triagensSalvas = [];
+          }
+        } catch {
+          triagensSalvas = [];
+        }
+
+        const triagemAtualizada = {
+          ...formData,
+          id: Number.isNaN(Number(id)) ? id : Number(id),
+        };
+
+        const triagemIndex = triagensSalvas.findIndex(
+          (triagem) => String(triagem.id) === String(id),
+        );
+
+        if (triagemIndex === -1) {
+          alert("Nao foi possivel atualizar: registro nao encontrado.");
+          return;
+        }
+
+        triagensSalvas[triagemIndex] = triagemAtualizada;
+        localStorage.setItem("triagens_at", JSON.stringify(triagensSalvas));
+
+        alert("Triagem atualizada com sucesso!");
+        navigate("/dashboard");
+        return;
+      }
+
       const triagemComId = {
         ...formData,
         id: Date.now(),
@@ -87,6 +199,85 @@ export default function TriagemStepper() {
   const handleBack = () => {
     setActiveStep((previous) => previous - 1);
   };
+
+  const handleDuplicateLastTriagem = () => {
+    let triagensSalvas = [];
+
+    try {
+      triagensSalvas = JSON.parse(localStorage.getItem("triagens_at") || "[]");
+      if (!Array.isArray(triagensSalvas)) {
+        triagensSalvas = [];
+      }
+    } catch {
+      triagensSalvas = [];
+    }
+
+    if (triagensSalvas.length === 0) {
+      alert("Nenhuma triagem anterior encontrada para duplicar.");
+      return;
+    }
+
+    const ultimaTriagem = triagensSalvas[triagensSalvas.length - 1];
+
+    setFormData({
+      ...createInitialFormData(),
+      ...ultimaTriagem,
+      codigoRastreio: "",
+      numeroChamado: "",
+      equipamentos: Array.isArray(ultimaTriagem.equipamentos)
+        ? ultimaTriagem.equipamentos.map((equipamento) => ({
+            conteudo: equipamento.conteudo || "",
+            quantidade: Number(equipamento.quantidade) > 0 ? Number(equipamento.quantidade) : 1,
+            macAddress: "",
+          }))
+        : [{ conteudo: "", quantidade: 1, macAddress: "" }],
+    });
+
+    setActiveStep(0);
+    alert("Ultima triagem duplicada. Preencha os campos unicos para continuar.");
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      const target = event.target;
+      const isTextarea = target instanceof HTMLTextAreaElement;
+      const isEditable = target instanceof HTMLElement && target.isContentEditable;
+      const isAutocompleteOpen =
+        target instanceof HTMLElement && target.getAttribute("aria-expanded") === "true";
+
+      if (event.altKey && event.key === "1") {
+        event.preventDefault();
+        setFormData((previous) => ({
+          ...previous,
+          motivo: "Devolucao",
+        }));
+        return;
+      }
+
+      if (event.altKey && event.key === "2") {
+        event.preventDefault();
+        setFormData((previous) => ({
+          ...previous,
+          motivo: "Manutencao",
+        }));
+        return;
+      }
+
+      if (event.key === "Enter" && !event.shiftKey) {
+        if (isTextarea || isEditable || isAutocompleteOpen) {
+          return;
+        }
+
+        if (canProceedCurrentStep) {
+          event.preventDefault();
+          handleNext();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [canProceedCurrentStep, handleNext]);
 
   const handleAddEquipamento = () => {
     setFormData((previous) => ({
@@ -138,6 +329,7 @@ export default function TriagemStepper() {
               <TextField
                 fullWidth
                 label="Codigo de Rastreio"
+                autoFocus
                 value={formData.codigoRastreio}
                 onChange={handleChange("codigoRastreio")}
               />
@@ -171,7 +363,9 @@ export default function TriagemStepper() {
                     onInputChange={(_, newInputValue) => {
                       handleEquipamentoChange(index, "conteudo", newInputValue);
                     }}
-                    renderInput={(params) => <TextField {...params} label="Conteudo" />}
+                    renderInput={(params) => (
+                      <TextField {...params} label="Conteudo" autoFocus={index === 0} />
+                    )}
                   />
                 </Grid>
 
@@ -337,9 +531,23 @@ export default function TriagemStepper() {
 
   return (
     <Paper elevation={3} sx={{ p: { xs: 2, md: 4 }, borderRadius: 3 }}>
-      <Typography variant="h5" fontWeight={700} mb={3}>
-        Triagem de Equipamentos
-      </Typography>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 2,
+          flexWrap: "wrap",
+          mb: 3,
+        }}
+      >
+        <Typography variant="h5" fontWeight={700}>
+          {isEditing ? "Editar Triagem" : "Triagem de Equipamentos"}
+        </Typography>
+        <Button variant="outlined" onClick={handleDuplicateLastTriagem}>
+          Duplicar Ultima Triagem
+        </Button>
+      </Box>
 
       <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
         {steps.map((label) => (
@@ -363,8 +571,8 @@ export default function TriagemStepper() {
           Voltar
         </Button>
 
-        <Button variant="contained" onClick={handleNext}>
-          {isLastStep ? "Salvar Triagem" : "Avancar"}
+        <Button variant="contained" onClick={handleNext} disabled={!canProceedCurrentStep}>
+          {isLastStep ? (isEditing ? "Atualizar Registro" : "Salvar Triagem") : "Avancar"}
         </Button>
       </Box>
     </Paper>
