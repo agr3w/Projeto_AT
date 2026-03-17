@@ -27,6 +27,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
+import { useAlert } from "../../contexts/useAlert";
 
 const dashboardTheme = createTheme({
   palette: {
@@ -41,6 +42,7 @@ const dashboardTheme = createTheme({
 
 export default function DashboardTriagem() {
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
   const [triagens, setTriagens] = useState(() => {
     try {
       const triagensLocalStorage = JSON.parse(localStorage.getItem("triagens_at") || "[]");
@@ -89,6 +91,14 @@ export default function DashboardTriagem() {
     }, 0);
   };
 
+  const formatDateBr = (dateString) => {
+    if (!dateString || !dateString.includes("-")) {
+      return dateString || "-";
+    }
+
+    return dateString.split("-").reverse().join("/");
+  };
+
   const handleDelete = (id) => {
     const confirmar = window.confirm("Tem certeza que deseja excluir este registro?");
 
@@ -99,11 +109,12 @@ export default function DashboardTriagem() {
     const triagensAtualizadas = triagens.filter((triagem) => triagem.id !== id);
     setTriagens(triagensAtualizadas);
     localStorage.setItem("triagens_at", JSON.stringify(triagensAtualizadas));
+    showAlert("Registro excluido com sucesso.", "success");
   };
 
   const handleEdit = (triagem) => {
     if (!triagem?.id) {
-      alert("Registro sem ID. Nao foi possivel abrir a edicao.");
+      showAlert("Registro sem ID. Nao foi possivel abrir a edicao.", "error");
       return;
     }
 
@@ -201,7 +212,7 @@ export default function DashboardTriagem() {
               {triagensFiltradas.length > 0 ? (
                 triagensFiltradas.map((triagem) => (
                   <TableRow key={triagem.id || `${triagem.codigoRastreio}-${triagem.data}`}>
-                    <TableCell>{triagem.data || "-"}</TableCell>
+                    <TableCell>{formatDateBr(triagem.data)}</TableCell>
                     <TableCell>{triagem.codigoRastreio || "-"}</TableCell>
                     <TableCell>{triagem.operador || "-"}</TableCell>
                     <TableCell>{triagem.motivo || "-"}</TableCell>

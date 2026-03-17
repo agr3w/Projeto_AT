@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Autocomplete,
   Box,
@@ -17,6 +17,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAlert } from "../../contexts/useAlert";
 import {
   conteudoOptions,
   defeitoOptions,
@@ -27,7 +28,7 @@ import {
 const steps = ["Identificacao", "Equipamento", "Diagnostico", "Conclusao"];
 
 const createInitialFormData = () => ({
-  data: "",
+  data: new Date().toISOString().split("T")[0],
   codigoRastreio: "",
   equipamentos: [{ conteudo: "", quantidade: 1, macAddress: "" }],
   operador: "",
@@ -39,12 +40,45 @@ const createInitialFormData = () => ({
   finalizado: false,
 });
 
+const getTriagensFromStorage = () => {
+  try {
+    const triagensSalvas = JSON.parse(localStorage.getItem("triagens_at") || "[]");
+    return Array.isArray(triagensSalvas) ? triagensSalvas : [];
+  } catch {
+    return [];
+  }
+};
+
+const mapTriagemToFormData = (triagem) => ({
+  ...createInitialFormData(),
+  ...triagem,
+  equipamentos:
+    Array.isArray(triagem?.equipamentos) && triagem.equipamentos.length > 0
+      ? triagem.equipamentos.map((equipamento) => ({
+          conteudo: equipamento.conteudo || "",
+          quantidade: Number(equipamento.quantidade) > 0 ? Number(equipamento.quantidade) : 1,
+          macAddress: equipamento.macAddress || "",
+        }))
+      : [{ conteudo: "", quantidade: 1, macAddress: "" }],
+});
+
 export default function TriagemStepper() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
   const [activeStep, setActiveStep] = useState(0);
-  const [formData, setFormData] = useState(createInitialFormData());
-  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState(() => {
+    if (!id) {
+      return createInitialFormData();
+    }
+
+    const triagemEncontrada = getTriagensFromStorage().find(
+      (triagem) => String(triagem.id) === String(id),
+    );
+
+    return triagemEncontrada ? mapTriagemToFormData(triagemEncontrada) : createInitialFormData();
+  });
+  const isEditing = Boolean(id);
 
   const isLastStep = useMemo(() => activeStep === steps.length - 1, [activeStep]);
 
@@ -80,47 +114,18 @@ export default function TriagemStepper() {
 
   useEffect(() => {
     if (!id) {
-      setIsEditing(false);
       return;
     }
 
-    let triagensSalvas = [];
-
-    try {
-      triagensSalvas = JSON.parse(localStorage.getItem("triagens_at") || "[]");
-      if (!Array.isArray(triagensSalvas)) {
-        triagensSalvas = [];
-      }
-    } catch {
-      triagensSalvas = [];
-    }
-
-    const triagemEncontrada = triagensSalvas.find(
+    const triagemEncontrada = getTriagensFromStorage().find(
       (triagem) => String(triagem.id) === String(id),
     );
 
     if (!triagemEncontrada) {
-      alert("Triagem nao encontrada para edicao.");
+      showAlert("Triagem nao encontrada para edicao.", "error");
       navigate("/dashboard");
-      return;
     }
-
-    setFormData({
-      ...createInitialFormData(),
-      ...triagemEncontrada,
-      equipamentos:
-        Array.isArray(triagemEncontrada.equipamentos) &&
-        triagemEncontrada.equipamentos.length > 0
-          ? triagemEncontrada.equipamentos.map((equipamento) => ({
-              conteudo: equipamento.conteudo || "",
-              quantidade: Number(equipamento.quantidade) > 0 ? Number(equipamento.quantidade) : 1,
-              macAddress: equipamento.macAddress || "",
-            }))
-          : [{ conteudo: "", quantidade: 1, macAddress: "" }],
-    });
-    setIsEditing(true);
-    setActiveStep(0);
-  }, [id, navigate]);
+  }, [id, navigate, showAlert]);
 
   const handleChange = (field) => (event) => {
     const value =
@@ -132,7 +137,7 @@ export default function TriagemStepper() {
     }));
   };
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (isLastStep) {
       if (isEditing) {
         let triagensSalvas = [];
@@ -156,14 +161,14 @@ export default function TriagemStepper() {
         );
 
         if (triagemIndex === -1) {
-          alert("Nao foi possivel atualizar: registro nao encontrado.");
+          showAlert("Nao foi possivel atualizar: registro nao encontrado.", "error");
           return;
         }
 
         triagensSalvas[triagemIndex] = triagemAtualizada;
         localStorage.setItem("triagens_at", JSON.stringify(triagensSalvas));
 
-        alert("Triagem atualizada com sucesso!");
+        showAlert("Triagem atualizada com sucesso!", "success");
         navigate("/dashboard");
         return;
       }
@@ -187,14 +192,14 @@ export default function TriagemStepper() {
       triagensSalvas.push(triagemComId);
       localStorage.setItem("triagens_at", JSON.stringify(triagensSalvas));
 
-      alert("Triagem salva com sucesso!");
+      showAlert("Triagem salva com sucesso!", "success");
       setFormData(createInitialFormData());
       setActiveStep(0);
       return;
     }
 
     setActiveStep((previous) => previous + 1);
-  };
+  }, [formData, id, isEditing, isLastStep, navigate, showAlert]);
 
   const handleBack = () => {
     setActiveStep((previous) => previous - 1);
@@ -213,7 +218,7 @@ export default function TriagemStepper() {
     }
 
     if (triagensSalvas.length === 0) {
-      alert("Nenhuma triagem anterior encontrada para duplicar.");
+      showAlert("Nenhuma triagem anterior encontrada para duplicar.", "warning");
       return;
     }
 
@@ -234,7 +239,7 @@ export default function TriagemStepper() {
     });
 
     setActiveStep(0);
-    alert("Ultima triagem duplicada. Preencha os campos unicos para continuar.");
+    showAlert("Ultima triagem duplicada. Preencha os campos unicos para continuar.", "info");
   };
 
   useEffect(() => {
