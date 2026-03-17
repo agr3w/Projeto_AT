@@ -1,14 +1,12 @@
 import { useMemo, useState } from "react";
 import {
+  Autocomplete,
   Box,
   Button,
-  FormControl,
   FormControlLabel,
   Grid,
-  InputLabel,
-  MenuItem,
+  IconButton,
   Paper,
-  Select,
   Step,
   StepLabel,
   Stepper,
@@ -16,6 +14,8 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
 import {
   conteudoOptions,
   defeitoOptions,
@@ -25,11 +25,10 @@ import {
 
 const steps = ["Identificacao", "Equipamento", "Diagnostico", "Conclusao"];
 
-const initialFormData = {
+const createInitialFormData = () => ({
   data: "",
   codigoRastreio: "",
-  conteudo: "",
-  macAddress: "",
+  equipamentos: [{ conteudo: "", quantidade: 1, macAddress: "" }],
   operador: "",
   motivo: "",
   defeito: "",
@@ -37,11 +36,11 @@ const initialFormData = {
   observacoes: "",
   link: "",
   finalizado: false,
-};
+});
 
 export default function TriagemStepper() {
   const [activeStep, setActiveStep] = useState(0);
-  const [formData, setFormData] = useState(initialFormData);
+  const [formData, setFormData] = useState(createInitialFormData());
 
   const isLastStep = useMemo(() => activeStep === steps.length - 1, [activeStep]);
 
@@ -57,7 +56,28 @@ export default function TriagemStepper() {
 
   const handleNext = () => {
     if (isLastStep) {
-      console.log("Triagem salva:", formData);
+      const triagemComId = {
+        ...formData,
+        id: Date.now(),
+      };
+
+      let triagensSalvas = [];
+
+      try {
+        triagensSalvas = JSON.parse(localStorage.getItem("triagens_at") || "[]");
+        if (!Array.isArray(triagensSalvas)) {
+          triagensSalvas = [];
+        }
+      } catch {
+        triagensSalvas = [];
+      }
+
+      triagensSalvas.push(triagemComId);
+      localStorage.setItem("triagens_at", JSON.stringify(triagensSalvas));
+
+      alert("Triagem salva com sucesso!");
+      setFormData(createInitialFormData());
+      setActiveStep(0);
       return;
     }
 
@@ -66,6 +86,37 @@ export default function TriagemStepper() {
 
   const handleBack = () => {
     setActiveStep((previous) => previous - 1);
+  };
+
+  const handleAddEquipamento = () => {
+    setFormData((previous) => ({
+      ...previous,
+      equipamentos: [
+        ...previous.equipamentos,
+        { conteudo: "", quantidade: 1, macAddress: "" },
+      ],
+    }));
+  };
+
+  const handleRemoveEquipamento = (index) => {
+    setFormData((previous) => ({
+      ...previous,
+      equipamentos: previous.equipamentos.filter((_, itemIndex) => itemIndex !== index),
+    }));
+  };
+
+  const handleEquipamentoChange = (index, field, value) => {
+    setFormData((previous) => ({
+      ...previous,
+      equipamentos: previous.equipamentos.map((equipamento, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...equipamento,
+              [field]: value,
+            }
+          : equipamento,
+      ),
+    }));
   };
 
   const renderStepContent = () => {
@@ -95,87 +146,145 @@ export default function TriagemStepper() {
         );
       case 1:
         return (
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth>
-                <InputLabel id="conteudo-label">Conteudo</InputLabel>
-                <Select
-                  labelId="conteudo-label"
-                  label="Conteudo"
-                  value={formData.conteudo}
-                  onChange={handleChange("conteudo")}
-                >
-                  {conteudoOptions.map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="MAC Address"
-                value={formData.macAddress}
-                onChange={handleChange("macAddress")}
-              />
-            </Grid>
-          </Grid>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {formData.equipamentos.map((equipamento, index) => (
+              <Grid
+                key={index}
+                container
+                spacing={2}
+                alignItems="center"
+                sx={{
+                  p: 2,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 2,
+                }}
+              >
+                <Grid size={{ xs: 12, md: 5 }}>
+                  <Autocomplete
+                    freeSolo
+                    options={conteudoOptions}
+                    value={equipamento.conteudo}
+                    onChange={(_, newValue) => {
+                      handleEquipamentoChange(index, "conteudo", newValue ?? "");
+                    }}
+                    onInputChange={(_, newInputValue) => {
+                      handleEquipamentoChange(index, "conteudo", newInputValue);
+                    }}
+                    renderInput={(params) => <TextField {...params} label="Conteudo" />}
+                  />
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 2 }}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Quantidade"
+                    value={equipamento.quantidade}
+                    inputProps={{ min: 1 }}
+                    onChange={(event) =>
+                      handleEquipamentoChange(
+                        index,
+                        "quantidade",
+                        Number(event.target.value) > 0 ? Number(event.target.value) : 1,
+                      )
+                    }
+                  />
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <TextField
+                    fullWidth
+                    label="MAC Address"
+                    value={equipamento.macAddress}
+                    onChange={(event) =>
+                      handleEquipamentoChange(index, "macAddress", event.target.value)
+                    }
+                  />
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 1 }}>
+                  <IconButton
+                    color="error"
+                    aria-label="Remover equipamento"
+                    onClick={() => handleRemoveEquipamento(index)}
+                    disabled={formData.equipamentos.length === 1}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Grid>
+              </Grid>
+            ))}
+
+            <Box>
+              <Button variant="outlined" startIcon={<AddIcon />} onClick={handleAddEquipamento}>
+                Adicionar Equipamento
+              </Button>
+            </Box>
+          </Box>
         );
       case 2:
         return (
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 4 }}>
-              <FormControl fullWidth>
-                <InputLabel id="operador-label">Operador</InputLabel>
-                <Select
-                  labelId="operador-label"
-                  label="Operador"
-                  value={formData.operador}
-                  onChange={handleChange("operador")}
-                >
-                  {operadorOptions.map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                freeSolo
+                options={operadorOptions}
+                value={formData.operador}
+                onChange={(_, newValue) => {
+                  setFormData((previous) => ({
+                    ...previous,
+                    operador: newValue ?? "",
+                  }));
+                }}
+                onInputChange={(_, newInputValue) => {
+                  setFormData((previous) => ({
+                    ...previous,
+                    operador: newInputValue,
+                  }));
+                }}
+                renderInput={(params) => <TextField {...params} label="Operador" />}
+              />
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <FormControl fullWidth>
-                <InputLabel id="motivo-label">Motivo</InputLabel>
-                <Select
-                  labelId="motivo-label"
-                  label="Motivo"
-                  value={formData.motivo}
-                  onChange={handleChange("motivo")}
-                >
-                  {motivoOptions.map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                freeSolo
+                options={motivoOptions}
+                value={formData.motivo}
+                onChange={(_, newValue) => {
+                  setFormData((previous) => ({
+                    ...previous,
+                    motivo: newValue ?? "",
+                  }));
+                }}
+                onInputChange={(_, newInputValue) => {
+                  setFormData((previous) => ({
+                    ...previous,
+                    motivo: newInputValue,
+                  }));
+                }}
+                renderInput={(params) => <TextField {...params} label="Motivo" />}
+              />
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <FormControl fullWidth>
-                <InputLabel id="defeito-label">Defeito</InputLabel>
-                <Select
-                  labelId="defeito-label"
-                  label="Defeito"
-                  value={formData.defeito}
-                  onChange={handleChange("defeito")}
-                >
-                  {defeitoOptions.map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                freeSolo
+                options={defeitoOptions}
+                value={formData.defeito}
+                onChange={(_, newValue) => {
+                  setFormData((previous) => ({
+                    ...previous,
+                    defeito: newValue ?? "",
+                  }));
+                }}
+                onInputChange={(_, newInputValue) => {
+                  setFormData((previous) => ({
+                    ...previous,
+                    defeito: newInputValue,
+                  }));
+                }}
+                renderInput={(params) => <TextField {...params} label="Defeito" />}
+              />
             </Grid>
           </Grid>
         );
