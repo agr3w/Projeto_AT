@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import Layout from "./components/Layout";
 import { useAuth } from "./contexts/useAuth";
 import DashboardTriagem from "./pages/public/DashboardTriagem";
 import Login from "./pages/public/Login";
@@ -49,7 +50,9 @@ export default function Router() {
         path="/triagem"
         element={
           <ProtectedRoute allowedRoles={["operador", "admin"]}>
-            <Triagem />
+            <Layout>
+              <Triagem />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -57,7 +60,9 @@ export default function Router() {
         path="/dashboard"
         element={
           <ProtectedRoute allowedRoles={["operador", "admin"]}>
-            <DashboardTriagem />
+            <Layout>
+              <DashboardTriagem />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -65,7 +70,9 @@ export default function Router() {
         path="/admin"
         element={
           <ProtectedRoute allowedRoles={["admin"]} redirectTo="/dashboard">
-            <PainelGestor />
+            <Layout>
+              <PainelGestor />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -73,7 +80,9 @@ export default function Router() {
         path="/editar/:id"
         element={
           <ProtectedRoute allowedRoles={["operador", "admin"]}>
-            <Triagem />
+            <Layout>
+              <Triagem />
+            </Layout>
           </ProtectedRoute>
         }
       />

@@ -20,7 +20,6 @@ import AddIcon from "@mui/icons-material/Add";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
-import LogoutIcon from "@mui/icons-material/Logout";
 import { DataGrid } from "@mui/x-data-grid";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
@@ -138,11 +137,6 @@ export default function DashboardTriagem() {
     navigate(`/editar/${triagem.id}`);
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login", { replace: true });
-  };
-
   const processRowUpdate = (newRow) => {
     const triagemAtualizada = {
       ...newRow,
@@ -249,7 +243,7 @@ export default function DashboardTriagem() {
               size="small"
               label={isFinalizado ? "Finalizado" : "Pendente"}
               color={isFinalizado ? "success" : "warning"}
-              variant={isFinalizado ? "filled" : "outlined"}
+              variant={isFinalizado ? "outlined" : "filled"}
             />
           );
         },
@@ -340,15 +334,6 @@ export default function DashboardTriagem() {
             >
               Nova Triagem
             </Button>
-
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<LogoutIcon />}
-              onClick={handleLogout}
-            >
-              Sair
-            </Button>
           </Box>
         </Box>
 
@@ -427,9 +412,12 @@ export default function DashboardTriagem() {
             sx={{
               minHeight: 520,
               border: 0,
+              "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within": {
+                outline: "none",
+              },
               "& .MuiDataGrid-columnHeaders": {
-                bgcolor: "primary.main",
-                color: "common.white",
+                bgcolor: "#EDF2F7",
+                color: "text.primary",
               },
               "& .MuiDataGrid-columnHeaderTitle": {
                 fontWeight: 700,
@@ -438,10 +426,10 @@ export default function DashboardTriagem() {
                 transition: "background-color 120ms ease",
               },
               "& .MuiDataGrid-row:nth-of-type(even)": {
-                bgcolor: "#f7fbff",
+                bgcolor: "#fafafa",
               },
               "& .MuiDataGrid-row:hover": {
-                bgcolor: "#e8f2ff",
+                bgcolor: "#f0f7ff",
               },
               "& .MuiDataGrid-row.row-finalizado": {
                 boxShadow: "inset 4px 0 0 #2e7d32",
