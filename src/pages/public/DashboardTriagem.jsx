@@ -13,21 +13,20 @@ import {
   MenuItem,
   Paper,
   Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import BarChartIcon from "@mui/icons-material/BarChart";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import LogoutIcon from "@mui/icons-material/Logout";
+import { DataGrid } from "@mui/x-data-grid";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { useAlert } from "../../contexts/useAlert";
+import { useAuth } from "../../contexts/useAuth";
+import { defeitoOptions, motivoOptions } from "../../data/triagemOptions";
 
 const dashboardTheme = createTheme({
   palette: {
@@ -43,13 +42,42 @@ const dashboardTheme = createTheme({
 export default function DashboardTriagem() {
   const navigate = useNavigate();
   const { showAlert } = useAlert();
-  const [triagens, setTriagens] = useState(() => {
+  const { user, logout } = useAuth();
+
+  const getTriagensDoStorage = () => {
     try {
       const triagensLocalStorage = JSON.parse(localStorage.getItem("triagens_at") || "[]");
-      return Array.isArray(triagensLocalStorage) ? triagensLocalStorage : [];
+
+      if (!Array.isArray(triagensLocalStorage)) {
+        return [];
+      }
+
+      let houveAjusteDeId = false;
+      const baseId = Date.now();
+      const triagensComId = triagensLocalStorage.map((triagem, index) => {
+        if (triagem.id !== undefined && triagem.id !== null && triagem.id !== "") {
+          return triagem;
+        }
+
+        houveAjusteDeId = true;
+        return {
+          ...triagem,
+          id: baseId + index,
+        };
+      });
+
+      if (houveAjusteDeId) {
+        localStorage.setItem("triagens_at", JSON.stringify(triagensComId));
+      }
+
+      return triagensComId;
     } catch {
       return [];
     }
+  };
+
+  const [triagens, setTriagens] = useState(() => {
+    return getTriagensDoStorage();
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [operadorFilter, setOperadorFilter] = useState(null);
@@ -79,17 +107,6 @@ export default function DashboardTriagem() {
       return matchBusca && matchOperador && matchStatus;
     });
   }, [triagens, searchTerm, operadorFilter, statusFilter]);
-
-  const getTotalEquipamentos = (equipamentos) => {
-    if (!Array.isArray(equipamentos) || equipamentos.length === 0) {
-      return 0;
-    }
-
-    return equipamentos.reduce((total, equipamento) => {
-      const quantidade = Number(equipamento.quantidade) || 0;
-      return total + quantidade;
-    }, 0);
-  };
 
   const formatDateBr = (dateString) => {
     if (!dateString || !dateString.includes("-")) {
@@ -121,6 +138,171 @@ export default function DashboardTriagem() {
     navigate(`/editar/${triagem.id}`);
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
+
+  const processRowUpdate = (newRow) => {
+    const triagemAtualizada = {
+      ...newRow,
+      finalizado: newRow.status === "Finalizado",
+    };
+
+    delete triagemAtualizada.status;
+
+    const triagensAtualizadas = triagens.map((triagem) =>
+      String(triagem.id) === String(newRow.id) ? { ...triagem, ...triagemAtualizada } : triagem,
+    );
+
+    setTriagens(triagensAtualizadas);
+    localStorage.setItem("triagens_at", JSON.stringify(triagensAtualizadas));
+    showAlert("Campo atualizado rapidamente!", "success");
+
+    return {
+      ...newRow,
+      finalizado: triagemAtualizada.finalizado,
+      status: triagemAtualizada.finalizado ? "Finalizado" : "Pendente",
+    };
+  };
+
+  const handleProcessRowUpdateError = () => {
+    showAlert("Nao foi possivel salvar a edicao rapida.", "error");
+  };
+
+  const columns = useMemo(
+    () => [
+      {
+        field: "data",
+        headerName: "Data",
+        width: 120,
+        valueFormatter: (value) => formatDateBr(value),
+      },
+      {
+        field: "codigoRastreio",
+        headerName: "Rastreio",
+        minWidth: 170,
+        flex: 1,
+      },
+      {
+        field: "operador",
+        headerName: "Operador",
+        minWidth: 150,
+        flex: 1,
+        editable: true,
+        type: "singleSelect",
+        valueOptions: operadorOptions,
+      },
+      {
+        field: "motivo",
+        headerName: "Motivo",
+        minWidth: 160,
+        flex: 1,
+        editable: true,
+        type: "singleSelect",
+        valueOptions: motivoOptions,
+      },
+      {
+        field: "defeito",
+        headerName: "Defeito",
+        minWidth: 160,
+        flex: 1,
+        editable: true,
+        type: "singleSelect",
+        valueOptions: defeitoOptions,
+      },
+      {
+        field: "numeroChamado",
+        headerName: "Numero do Chamado",
+        minWidth: 170,
+        flex: 1,
+        editable: true,
+      },
+      {
+        field: "observacoes",
+        headerName: "Observacoes",
+        minWidth: 220,
+        flex: 1.2,
+        editable: true,
+      },
+      {
+        field: "link",
+        headerName: "Link",
+        minWidth: 220,
+        flex: 1,
+        editable: true,
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        minWidth: 140,
+        flex: 0.8,
+        editable: true,
+        type: "singleSelect",
+        valueOptions: ["Pendente", "Finalizado"],
+        valueGetter: (_, row) => (row.finalizado ? "Finalizado" : "Pendente"),
+        renderCell: (params) => {
+          const isFinalizado = params.value === "Finalizado";
+
+          return (
+            <Chip
+              size="small"
+              label={isFinalizado ? "Finalizado" : "Pendente"}
+              color={isFinalizado ? "success" : "warning"}
+              variant={isFinalizado ? "filled" : "outlined"}
+            />
+          );
+        },
+      },
+      {
+        field: "acoes",
+        headerName: "Acoes",
+        sortable: false,
+        filterable: false,
+        disableColumnMenu: true,
+        width: 120,
+        renderCell: (params) => (
+          <Box sx={{ display: "flex", gap: 0.5 }}>
+            <IconButton
+              color="primary"
+              aria-label="Editar triagem"
+              onClick={() => handleEdit(params.row)}
+            >
+              <EditIcon />
+            </IconButton>
+            <IconButton
+              color="error"
+              aria-label="Excluir triagem"
+              onClick={() => handleDelete(params.row.id)}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Box>
+        ),
+      },
+    ],
+    [operadorOptions],
+  );
+
+  const rows = useMemo(
+    () =>
+      triagensFiltradas.map((triagem) => ({
+        ...triagem,
+        status: triagem.finalizado ? "Finalizado" : "Pendente",
+      })),
+    [triagensFiltradas],
+  );
+
+  const totalFinalizadas = useMemo(
+    () => rows.filter((row) => row.status === "Finalizado").length,
+    [rows],
+  );
+
+  const totalPendentes = useMemo(
+    () => rows.filter((row) => row.status === "Pendente").length,
+    [rows],
+  );
+
   return (
     <ThemeProvider theme={dashboardTheme}>
       <CssBaseline />
@@ -139,13 +321,35 @@ export default function DashboardTriagem() {
             Dashboard de Triagem
           </Typography>
 
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => navigate("/triagem")}
-          >
-            Nova Triagem
-          </Button>
+          <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+            {user?.role === "admin" && (
+              <Button
+                color="secondary"
+                variant="contained"
+                startIcon={<BarChartIcon />}
+                onClick={() => navigate("/admin")}
+              >
+                Acessar Painel Gestor
+              </Button>
+            )}
+
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => navigate("/triagem")}
+            >
+              Nova Triagem
+            </Button>
+
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<LogoutIcon />}
+              onClick={handleLogout}
+            >
+              Sair
+            </Button>
+          </Box>
         </Box>
 
         <Paper elevation={2} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
@@ -186,73 +390,72 @@ export default function DashboardTriagem() {
           </Grid>
         </Paper>
 
-        <TableContainer component={Paper} elevation={2} sx={{ borderRadius: 2 }}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: "primary.main" }}>
-                <TableCell sx={{ color: "common.white", fontWeight: 700 }}>Data</TableCell>
-                <TableCell sx={{ color: "common.white", fontWeight: 700 }}>
-                  Codigo de Rastreio
-                </TableCell>
-                <TableCell sx={{ color: "common.white", fontWeight: 700 }}>
-                  Operador
-                </TableCell>
-                <TableCell sx={{ color: "common.white", fontWeight: 700 }}>Motivo</TableCell>
-                <TableCell sx={{ color: "common.white", fontWeight: 700 }}>
-                  Equipamentos
-                </TableCell>
-                <TableCell sx={{ color: "common.white", fontWeight: 700 }}>Status</TableCell>
-                <TableCell sx={{ color: "common.white", fontWeight: 700 }}>
-                  Acoes
-                </TableCell>
-              </TableRow>
-            </TableHead>
+        <Box sx={{ display: "flex", gap: 1, mb: 1.5, mt: 0.5, flexWrap: "wrap" }}>
+          <Chip
+            size="small"
+            color="success"
+            label={`Finalizadas: ${totalFinalizadas}`}
+            variant="filled"
+          />
+          <Chip
+            size="small"
+            color="warning"
+            label={`Pendentes: ${totalPendentes}`}
+            variant="outlined"
+          />
+        </Box>
 
-            <TableBody>
-              {triagensFiltradas.length > 0 ? (
-                triagensFiltradas.map((triagem) => (
-                  <TableRow key={triagem.id || `${triagem.codigoRastreio}-${triagem.data}`}>
-                    <TableCell>{formatDateBr(triagem.data)}</TableCell>
-                    <TableCell>{triagem.codigoRastreio || "-"}</TableCell>
-                    <TableCell>{triagem.operador || "-"}</TableCell>
-                    <TableCell>{triagem.motivo || "-"}</TableCell>
-                    <TableCell>{getTotalEquipamentos(triagem.equipamentos)}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={triagem.finalizado ? "Finalizado" : "Pendente"}
-                        color={triagem.finalizado ? "success" : "warning"}
-                        size="small"
-                        variant="filled"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <IconButton
-                        color="primary"
-                        aria-label="Editar triagem"
-                        onClick={() => handleEdit(triagem)}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        color="error"
-                        aria-label="Excluir triagem"
-                        onClick={() => handleDelete(triagem.id)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                    Nenhuma triagem encontrada para os filtros informados.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Paper elevation={2} sx={{ borderRadius: 2, overflow: "hidden" }}>
+          <DataGrid
+            rows={rows}
+            columns={columns}
+            processRowUpdate={processRowUpdate}
+            onProcessRowUpdateError={handleProcessRowUpdateError}
+            disableRowSelectionOnClick
+            getRowClassName={(params) =>
+              params.row.status === "Finalizado" ? "row-finalizado" : "row-pendente"
+            }
+            pageSizeOptions={[10, 25, 50]}
+            initialState={{
+              pagination: {
+                paginationModel: {
+                  pageSize: 10,
+                  page: 0,
+                },
+              },
+            }}
+            sx={{
+              minHeight: 520,
+              border: 0,
+              "& .MuiDataGrid-columnHeaders": {
+                bgcolor: "primary.main",
+                color: "common.white",
+              },
+              "& .MuiDataGrid-columnHeaderTitle": {
+                fontWeight: 700,
+              },
+              "& .MuiDataGrid-row": {
+                transition: "background-color 120ms ease",
+              },
+              "& .MuiDataGrid-row:nth-of-type(even)": {
+                bgcolor: "#f7fbff",
+              },
+              "& .MuiDataGrid-row:hover": {
+                bgcolor: "#e8f2ff",
+              },
+              "& .MuiDataGrid-row.row-finalizado": {
+                boxShadow: "inset 4px 0 0 #2e7d32",
+              },
+              "& .MuiDataGrid-row.row-pendente": {
+                boxShadow: "inset 4px 0 0 #ed6c02",
+              },
+              "& .MuiDataGrid-footerContainer": {
+                borderTop: "1px solid #dbe8f7",
+                bgcolor: "#f4f8fd",
+              },
+            }}
+          />
+        </Paper>
       </Container>
     </ThemeProvider>
   );

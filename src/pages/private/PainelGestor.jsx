@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Box,
+  Button,
   Card,
   CardContent,
   Container,
@@ -9,7 +10,9 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { BarChart, PieChart } from "@mui/x-charts";
+import { useNavigate } from "react-router-dom";
 
 const safeParseTriagens = () => {
   try {
@@ -53,6 +56,7 @@ const isWithinRange = (dateString, startDate, endDate) => {
 };
 
 export default function PainelGestor() {
+  const navigate = useNavigate();
   const [triagens, setTriagens] = useState(safeParseTriagens);
   const [dataInicial, setDataInicial] = useState("");
   const [dataFinal, setDataFinal] = useState("");
@@ -132,13 +136,34 @@ export default function PainelGestor() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" fontWeight={700} color="primary.main">
-          Painel Gerencial
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Analise consolidada das triagens registradas no sistema.
-        </Typography>
+      <Box
+        sx={{
+          mb: 3,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 2,
+          flexWrap: "wrap",
+        }}
+      >
+        <Box>
+          <Typography variant="h4" fontWeight={700} color="primary.main">
+            Painel Gerencial
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Analise consolidada das triagens registradas no sistema.
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate("/dashboard")}
+          >
+            Voltar ao Dashboard
+          </Button>
+        </Box>
       </Box>
 
       <Paper elevation={1} sx={{ p: 2, mb: 3, borderRadius: 2 }}>

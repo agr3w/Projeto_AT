@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Autocomplete,
   Box,
@@ -66,7 +66,9 @@ export default function TriagemStepper() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showAlert } = useAlert();
+  const codigoRastreioInputRef = useRef(null);
   const [activeStep, setActiveStep] = useState(0);
+  const [isContinuo, setIsContinuo] = useState(false);
   const [formData, setFormData] = useState(() => {
     if (!id) {
       return createInitialFormData();
@@ -126,6 +128,18 @@ export default function TriagemStepper() {
       navigate("/dashboard");
     }
   }, [id, navigate, showAlert]);
+
+  useEffect(() => {
+    if (activeStep !== 0) {
+      return;
+    }
+
+    const focusTimeout = window.setTimeout(() => {
+      codigoRastreioInputRef.current?.focus();
+    }, 0);
+
+    return () => window.clearTimeout(focusTimeout);
+  }, [activeStep]);
 
   const handleChange = (field) => (event) => {
     const value =
@@ -193,13 +207,24 @@ export default function TriagemStepper() {
       localStorage.setItem("triagens_at", JSON.stringify(triagensSalvas));
 
       showAlert("Triagem salva com sucesso!", "success");
+
+      if (isContinuo) {
+        setFormData((previous) => ({
+          ...createInitialFormData(),
+          data: previous.data || createInitialFormData().data,
+          operador: previous.operador || "",
+        }));
+        setActiveStep(0);
+        return;
+      }
+
       setFormData(createInitialFormData());
       setActiveStep(0);
       return;
     }
 
     setActiveStep((previous) => previous + 1);
-  }, [formData, id, isEditing, isLastStep, navigate, showAlert]);
+  }, [formData, id, isContinuo, isEditing, isLastStep, navigate, showAlert]);
 
   const handleBack = () => {
     setActiveStep((previous) => previous - 1);
@@ -335,6 +360,7 @@ export default function TriagemStepper() {
                 fullWidth
                 label="Codigo de Rastreio"
                 autoFocus
+                inputRef={codigoRastreioInputRef}
                 value={formData.codigoRastreio}
                 onChange={handleChange("codigoRastreio")}
               />
@@ -563,6 +589,20 @@ export default function TriagemStepper() {
       </Stepper>
 
       <Box>{renderStepContent()}</Box>
+
+      {isLastStep && !isEditing && (
+        <Box sx={{ mt: 3 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isContinuo}
+                onChange={(event) => setIsContinuo(event.target.checked)}
+              />
+            }
+            label="Modo Continuo (Salvar e Continuar)"
+          />
+        </Box>
+      )}
 
       <Box
         sx={{

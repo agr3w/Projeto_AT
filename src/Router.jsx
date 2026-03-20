@@ -5,7 +5,7 @@ import Login from "./pages/public/Login";
 import PainelGestor from "./pages/private/PainelGestor";
 import Triagem from "./pages/public/Triagem";
 
-function ProtectedRoute({ children, allowedRoles }) {
+function ProtectedRoute({ children, allowedRoles, redirectTo = "/dashboard" }) {
   const { user } = useAuth();
 
   if (!user) {
@@ -13,7 +13,7 @@ function ProtectedRoute({ children, allowedRoles }) {
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/triagem" replace />;
+    return <Navigate to={redirectTo} replace />;
   }
 
   return children;
@@ -26,17 +26,23 @@ function RootRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.role === "admin") {
-    return <Navigate to="/admin" replace />;
+  return <Navigate to="/dashboard" replace />;
+}
+
+function LoginRoute() {
+  const { user } = useAuth();
+
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
   }
 
-  return <Navigate to="/triagem" replace />;
+  return <Login />;
 }
 
 export default function Router() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
+      <Route path="/login" element={<LoginRoute />} />
       <Route path="/" element={<RootRedirect />} />
 
       <Route
@@ -58,7 +64,7 @@ export default function Router() {
       <Route
         path="/admin"
         element={
-          <ProtectedRoute allowedRoles={["admin"]}>
+          <ProtectedRoute allowedRoles={["admin"]} redirectTo="/dashboard">
             <PainelGestor />
           </ProtectedRoute>
         }
