@@ -95,8 +95,6 @@ export default function DashboardTriagem() {
         const resposta = await fetch("http://localhost/api-triagem/teste.php");
         const dados = await resposta.json();
         console.log("RESPOSTA DO SERVIDOR PHP:", dados);
-        // Opcional: Você pode até disparar o showAlert aqui para ver na tela!
-        // showAlert(dados.mensagem, "success");
       } catch (erro) {
         console.error("Erro ao conectar com o PHP:", erro);
       }

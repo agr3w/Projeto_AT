@@ -32,10 +32,10 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-
-    const result = login(email.trim(), senha);
+    
+    const result = await login(email.trim(), senha);
 
     if (!result.success) {
       showAlert(result.message, "error");
@@ -109,16 +109,25 @@ export default function Login() {
               <Box>
                 <Typography
                   variant="overline"
-                  sx={{ letterSpacing: 2, color: "primary.main", fontWeight: 700 }}
+                  sx={{
+                    letterSpacing: 2,
+                    color: "primary.main",
+                    fontWeight: 700,
+                  }}
                 >
                   SISTEMA DE TRIAGEM
                 </Typography>
-                <Typography variant="h3" fontWeight={800} color="primary.main" lineHeight={1.1}>
+                <Typography
+                  variant="h3"
+                  fontWeight={800}
+                  color="primary.main"
+                  lineHeight={1.1}
+                >
                   VendPago
                 </Typography>
                 <Typography variant="body1" color="text.secondary" mt={1.5}>
-                  Plataforma para acompanhamento de triagens, diagnosticos e produtividade da
-                  assistencia tecnica.
+                  Plataforma para acompanhamento de triagens, diagnosticos e
+                  produtividade da assistencia tecnica.
                 </Typography>
               </Box>
 
@@ -136,13 +145,22 @@ export default function Login() {
               <Typography variant="h5" fontWeight={700} color="primary.main">
                 Entrar na conta
               </Typography>
-              <Typography variant="body2" color="text.secondary" mt={0.5} mb={2}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                mt={0.5}
+                mb={2}
+              >
                 Use suas credenciais para continuar.
               </Typography>
 
               <Divider sx={{ mb: 2 }} />
 
-              <Box component="form" onSubmit={handleSubmit} sx={{ display: "grid", gap: 2 }}>
+              <Box
+                component="form"
+                onSubmit={handleSubmit}
+                sx={{ display: "grid", gap: 2 }}
+              >
                 <TextField
                   fullWidth
                   label="E-mail"

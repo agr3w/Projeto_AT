@@ -24,6 +24,7 @@ import {
   motivoOptions,
   operadorOptions,
 } from "../../data/triagemOptions";
+import { useAuth } from "../../contexts/useAuth";
 
 const steps = ["Identificacao", "Equipamento", "Diagnostico", "Conclusao"];
 
@@ -64,6 +65,7 @@ const mapTriagemToFormData = (triagem) => ({
 
 export default function TriagemStepper() {
   const { id } = useParams();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { showAlert } = useAlert();
   const codigoRastreioInputRef = useRef(null);
