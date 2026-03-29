@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   Autocomplete,
   Box,
@@ -45,7 +45,9 @@ export default function DashboardTriagem() {
 
   const getTriagensDoStorage = () => {
     try {
-      const triagensLocalStorage = JSON.parse(localStorage.getItem("triagens_at") || "[]");
+      const triagensLocalStorage = JSON.parse(
+        localStorage.getItem("triagens_at") || "[]",
+      );
 
       if (!Array.isArray(triagensLocalStorage)) {
         return [];
@@ -54,7 +56,11 @@ export default function DashboardTriagem() {
       let houveAjusteDeId = false;
       const baseId = Date.now();
       const triagensComId = triagensLocalStorage.map((triagem, index) => {
-        if (triagem.id !== undefined && triagem.id !== null && triagem.id !== "") {
+        if (
+          triagem.id !== undefined &&
+          triagem.id !== null &&
+          triagem.id !== ""
+        ) {
           return triagem;
         }
 
@@ -82,6 +88,23 @@ export default function DashboardTriagem() {
   const [operadorFilter, setOperadorFilter] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
 
+  // TESTE DE CONEXÃO COM O PHP
+  useEffect(() => {
+    const testarAPI = async () => {
+      try {
+        const resposta = await fetch("http://localhost/api-triagem/teste.php");
+        const dados = await resposta.json();
+        console.log("RESPOSTA DO SERVIDOR PHP:", dados);
+        // Opcional: Você pode até disparar o showAlert aqui para ver na tela!
+        // showAlert(dados.mensagem, "success");
+      } catch (erro) {
+        console.error("Erro ao conectar com o PHP:", erro);
+      }
+    };
+
+    testarAPI();
+  }, []);
+
   const operadorOptions = useMemo(() => {
     const operadores = triagens
       .map((triagem) => triagem.operador)
@@ -98,8 +121,10 @@ export default function DashboardTriagem() {
         .map((equipamento) => (equipamento.macAddress || "").toLowerCase())
         .join(" ");
 
-      const matchBusca = !termo || codigo.includes(termo) || macs.includes(termo);
-      const matchOperador = !operadorFilter || triagem.operador === operadorFilter;
+      const matchBusca =
+        !termo || codigo.includes(termo) || macs.includes(termo);
+      const matchOperador =
+        !operadorFilter || triagem.operador === operadorFilter;
       const statusTriagem = triagem.finalizado ? "Finalizado" : "Pendente";
       const matchStatus = !statusFilter || statusTriagem === statusFilter;
 
@@ -115,8 +140,10 @@ export default function DashboardTriagem() {
     return dateString.split("-").reverse().join("/");
   };
 
-  const handleDelete = (id) => {
-    const confirmar = window.confirm("Tem certeza que deseja excluir este registro?");
+  const handleDelete = useCallback((id) => {
+    const confirmar = window.confirm(
+      "Tem certeza que deseja excluir este registro?",
+    );
 
     if (!confirmar) {
       return;
@@ -126,16 +153,16 @@ export default function DashboardTriagem() {
     setTriagens(triagensAtualizadas);
     localStorage.setItem("triagens_at", JSON.stringify(triagensAtualizadas));
     showAlert("Registro excluido com sucesso.", "success");
-  };
+  }, [triagens, showAlert]);
 
-  const handleEdit = (triagem) => {
+  const handleEdit = useCallback((triagem) => {
     if (!triagem?.id) {
       showAlert("Registro sem ID. Nao foi possivel abrir a edicao.", "error");
       return;
     }
 
     navigate(`/editar/${triagem.id}`);
-  };
+  }, [navigate, showAlert]);
 
   const processRowUpdate = (newRow) => {
     const triagemAtualizada = {
@@ -146,7 +173,9 @@ export default function DashboardTriagem() {
     delete triagemAtualizada.status;
 
     const triagensAtualizadas = triagens.map((triagem) =>
-      String(triagem.id) === String(newRow.id) ? { ...triagem, ...triagemAtualizada } : triagem,
+      String(triagem.id) === String(newRow.id)
+        ? { ...triagem, ...triagemAtualizada }
+        : triagem,
     );
 
     setTriagens(triagensAtualizadas);
@@ -275,7 +304,7 @@ export default function DashboardTriagem() {
         ),
       },
     ],
-    [operadorOptions],
+    [operadorOptions, handleEdit, handleDelete],
   );
 
   const rows = useMemo(
@@ -353,7 +382,9 @@ export default function DashboardTriagem() {
                 options={operadorOptions}
                 value={operadorFilter}
                 onChange={(_, newValue) => setOperadorFilter(newValue)}
-                renderInput={(params) => <TextField {...params} label="Operador" />}
+                renderInput={(params) => (
+                  <TextField {...params} label="Operador" />
+                )}
               />
             </Grid>
 
@@ -375,7 +406,9 @@ export default function DashboardTriagem() {
           </Grid>
         </Paper>
 
-        <Box sx={{ display: "flex", gap: 1, mb: 1.5, mt: 0.5, flexWrap: "wrap" }}>
+        <Box
+          sx={{ display: "flex", gap: 1, mb: 1.5, mt: 0.5, flexWrap: "wrap" }}
+        >
           <Chip
             size="small"
             color="success"
@@ -398,7 +431,9 @@ export default function DashboardTriagem() {
             onProcessRowUpdateError={handleProcessRowUpdateError}
             disableRowSelectionOnClick
             getRowClassName={(params) =>
-              params.row.status === "Finalizado" ? "row-finalizado" : "row-pendente"
+              params.row.status === "Finalizado"
+                ? "row-finalizado"
+                : "row-pendente"
             }
             pageSizeOptions={[10, 25, 50]}
             initialState={{
