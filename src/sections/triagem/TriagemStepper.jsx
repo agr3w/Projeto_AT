@@ -17,14 +17,15 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAlert } from "../../contexts/useAlert";
+import { useAlert } from "../../hooks/useAlert";
 import {
   conteudoOptions,
   defeitoOptions,
   motivoOptions,
   operadorOptions,
 } from "../../data/triagemOptions";
-import { useAuth } from "../../contexts/useAuth";
+import { useAuth } from "../../hooks/useAuth";
+import { salvarTriagem } from "../../services/api";
 
 const steps = ["Identificacao", "Equipamento", "Diagnostico", "Conclusao"];
 
@@ -153,62 +154,35 @@ export default function TriagemStepper() {
     }));
   };
 
-  const handleNext = useCallback(() => {
+  const handleNext = useCallback(async () => {
     if (isLastStep) {
-      if (isEditing) {
-        let triagensSalvas = [];
-
-        try {
-          triagensSalvas = JSON.parse(localStorage.getItem("triagens_at") || "[]");
-          if (!Array.isArray(triagensSalvas)) {
-            triagensSalvas = [];
-          }
-        } catch {
-          triagensSalvas = [];
-        }
-
-        const triagemAtualizada = {
+      try {
+        const payload = {
           ...formData,
-          id: Number.isNaN(Number(id)) ? id : Number(id),
+          ...(isEditing ? { id: Number.isNaN(Number(id)) ? id : Number(id) } : {}),
         };
 
-        const triagemIndex = triagensSalvas.findIndex(
-          (triagem) => String(triagem.id) === String(id),
-        );
+        const data = await salvarTriagem(payload);
 
-        if (triagemIndex === -1) {
-          showAlert("Nao foi possivel atualizar: registro nao encontrado.", "error");
+        if (!data?.success) {
+          showAlert(data?.message || "Nao foi possivel salvar a triagem.", "error");
           return;
         }
 
-        triagensSalvas[triagemIndex] = triagemAtualizada;
-        localStorage.setItem("triagens_at", JSON.stringify(triagensSalvas));
-
-        showAlert("Triagem atualizada com sucesso!", "success");
-        navigate("/dashboard");
+        showAlert(
+          isEditing ? "Triagem atualizada com sucesso!" : "Triagem salva com sucesso!",
+          "success",
+        );
+      } catch (error) {
+        console.error("Erro ao salvar triagem:", error);
+        showAlert("Erro ao conectar com o servidor PHP.", "error");
         return;
       }
 
-      const triagemComId = {
-        ...formData,
-        id: Date.now(),
-      };
-
-      let triagensSalvas = [];
-
-      try {
-        triagensSalvas = JSON.parse(localStorage.getItem("triagens_at") || "[]");
-        if (!Array.isArray(triagensSalvas)) {
-          triagensSalvas = [];
-        }
-      } catch {
-        triagensSalvas = [];
+      if (isEditing) {
+        navigate("/dashboard");
+        return;
       }
-
-      triagensSalvas.push(triagemComId);
-      localStorage.setItem("triagens_at", JSON.stringify(triagensSalvas));
-
-      showAlert("Triagem salva com sucesso!", "success");
 
       if (isContinuo) {
         setFormData((previous) => ({

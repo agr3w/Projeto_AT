@@ -1,8 +1,8 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import Layout from "./components/Layout";
-import Loading from "./components/Loading";
-import { useAuth } from "./contexts/useAuth";
+import Layout from "./components/layout/Layout";
+import Loading from "./components/ui/Loading";
+import { useAuth } from "./hooks/useAuth";
 
 const DashboardTriagem = lazy(() => import("./pages/public/DashboardTriagem"));
 const Login = lazy(() => import("./pages/public/Login"));

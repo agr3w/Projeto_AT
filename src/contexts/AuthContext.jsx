@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { AuthContext } from "./AuthContextObject";
+import { loginUser } from "../services/api";
 
 const AUTH_STORAGE_KEY = "auth_user";
 
@@ -19,14 +20,7 @@ export function AuthProvider({ children }) {
 
   const login = async (email, senha) => {
     try {
-      // Pega a resposta do PHP, que é o usuário do PostgreSQL se deu tudo certo, ou uma mensagem de erro se deu errado
-      const response = await fetch("http://localhost/api-triagem/login.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, senha }),
-      });
-
-      const data = await response.json();
+      const data = await loginUser(email, senha);
 
       if (!data.success) {
         return { success: false, message: data.message };

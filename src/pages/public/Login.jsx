@@ -10,8 +10,8 @@ import {
 } from "@mui/material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../contexts/useAuth";
-import { useAlert } from "../../contexts/useAlert";
+import { useAuth } from "../../hooks/useAuth";
+import { useAlert } from "../../hooks/useAlert";
 
 const loginTheme = createTheme({
   palette: {

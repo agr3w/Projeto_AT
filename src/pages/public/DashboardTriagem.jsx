@@ -23,9 +23,10 @@ import EditIcon from "@mui/icons-material/Edit";
 import { DataGrid } from "@mui/x-data-grid";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
-import { useAlert } from "../../contexts/useAlert";
-import { useAuth } from "../../contexts/useAuth";
+import { useAlert } from "../../hooks/useAlert";
+import { useAuth } from "../../hooks/useAuth";
 import { defeitoOptions, motivoOptions } from "../../data/triagemOptions";
+import { testarConexao } from "../../services/api";
 
 const dashboardTheme = createTheme({
   palette: {
@@ -92,8 +93,7 @@ export default function DashboardTriagem() {
   useEffect(() => {
     const testarAPI = async () => {
       try {
-        const resposta = await fetch("http://localhost/api-triagem/teste.php");
-        const dados = await resposta.json();
+        const dados = await testarConexao();
         console.log("RESPOSTA DO SERVIDOR PHP:", dados);
       } catch (erro) {
         console.error("Erro ao conectar com o PHP:", erro);
