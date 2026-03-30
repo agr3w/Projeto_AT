@@ -25,8 +25,13 @@ import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { useAlert } from "../../hooks/useAlert";
 import { useAuth } from "../../hooks/useAuth";
-import { defeitoOptions, motivoOptions } from "../../data/triagemOptions";
-import { getFriendlyApiErrorMessage, testarConexao } from "../../services/api";
+import {
+  atualizarTriagem,
+  excluirTriagem,
+  getFriendlyApiErrorMessage,
+  listarTriagens,
+  testarConexao,
+} from "../../services/api";
 
 const dashboardTheme = createTheme({
   palette: {
@@ -42,52 +47,47 @@ const dashboardTheme = createTheme({
 export default function DashboardTriagem() {
   const navigate = useNavigate();
   const { showAlert } = useAlert();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
-  const getTriagensDoStorage = () => {
-    try {
-      const triagensLocalStorage = JSON.parse(
-        localStorage.getItem("triagens_at") || "[]",
-      );
-
-      if (!Array.isArray(triagensLocalStorage)) {
-        return [];
-      }
-
-      let houveAjusteDeId = false;
-      const baseId = Date.now();
-      const triagensComId = triagensLocalStorage.map((triagem, index) => {
-        if (
-          triagem.id !== undefined &&
-          triagem.id !== null &&
-          triagem.id !== ""
-        ) {
-          return triagem;
-        }
-
-        houveAjusteDeId = true;
-        return {
-          ...triagem,
-          id: baseId + index,
-        };
-      });
-
-      if (houveAjusteDeId) {
-        localStorage.setItem("triagens_at", JSON.stringify(triagensComId));
-      }
-
-      return triagensComId;
-    } catch {
-      return [];
-    }
-  };
-
-  const [triagens, setTriagens] = useState(() => {
-    return getTriagensDoStorage();
-  });
+  const [triagens, setTriagens] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [operadorFilter, setOperadorFilter] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
+
+  const isTriagemFinalizada = useCallback((triagem) => {
+    const value = triagem?.finalizado;
+    return value === true || value === 1 || value === "1" || value === "t";
+  }, []);
+
+  const carregarTriagens = useCallback(async () => {
+    try {
+      const data = await listarTriagens();
+
+      if (!data?.success) {
+        showAlert(data?.message || "Nao foi possivel carregar as triagens.", "error");
+        return;
+      }
+
+      setTriagens(Array.isArray(data.data) ? data.data : []);
+    } catch (error) {
+      console.error("[DashboardTriagem] Erro tecnico ao listar triagens:", {
+        error,
+        message: error?.message,
+      });
+      showAlert(
+        getFriendlyApiErrorMessage(
+          error,
+          "Nao foi possivel carregar as triagens no momento.",
+        ),
+        "error",
+      );
+    }
+  }, [showAlert]);
+
+  useEffect(() => {
+    carregarTriagens();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Teste automatico de conexao: so roda em desenvolvimento
   useEffect(() => {
@@ -123,7 +123,7 @@ export default function DashboardTriagem() {
 
   const operadorOptions = useMemo(() => {
     const operadores = triagens
-      .map((triagem) => triagem.operador)
+      .map((triagem) => triagem.operador_nome)
       .filter((operador) => Boolean(operador && operador.trim()));
 
     return Array.from(new Set(operadores));
@@ -132,21 +132,21 @@ export default function DashboardTriagem() {
   const triagensFiltradas = useMemo(() => {
     return triagens.filter((triagem) => {
       const termo = searchTerm.trim().toLowerCase();
-      const codigo = (triagem.codigoRastreio || "").toLowerCase();
+      const codigo = (triagem.codigo_rastreio || "").toLowerCase();
       const macs = (triagem.equipamentos || [])
-        .map((equipamento) => (equipamento.macAddress || "").toLowerCase())
+        .map((equipamento) => (equipamento.mac_address || "").toLowerCase())
         .join(" ");
 
       const matchBusca =
         !termo || codigo.includes(termo) || macs.includes(termo);
       const matchOperador =
-        !operadorFilter || triagem.operador === operadorFilter;
-      const statusTriagem = triagem.finalizado ? "Finalizado" : "Pendente";
+        !operadorFilter || triagem.operador_nome === operadorFilter;
+      const statusTriagem = isTriagemFinalizada(triagem) ? "Finalizado" : "Pendente";
       const matchStatus = !statusFilter || statusTriagem === statusFilter;
 
       return matchBusca && matchOperador && matchStatus;
     });
-  }, [triagens, searchTerm, operadorFilter, statusFilter]);
+  }, [triagens, searchTerm, operadorFilter, statusFilter, isTriagemFinalizada]);
 
   const formatDateBr = (dateString) => {
     if (!dateString || !dateString.includes("-")) {
@@ -156,7 +156,7 @@ export default function DashboardTriagem() {
     return dateString.split("-").reverse().join("/");
   };
 
-  const handleDelete = useCallback((id) => {
+  const handleDelete = useCallback(async (id) => {
     const confirmar = window.confirm(
       "Tem certeza que deseja excluir este registro?",
     );
@@ -165,11 +165,30 @@ export default function DashboardTriagem() {
       return;
     }
 
-    const triagensAtualizadas = triagens.filter((triagem) => triagem.id !== id);
-    setTriagens(triagensAtualizadas);
-    localStorage.setItem("triagens_at", JSON.stringify(triagensAtualizadas));
-    showAlert("Registro excluido com sucesso.", "success");
-  }, [triagens, showAlert]);
+    try {
+      const data = await excluirTriagem(id);
+
+      if (!data?.success) {
+        showAlert(data?.message || "Nao foi possivel excluir o registro.", "error");
+        return;
+      }
+
+      showAlert(data?.message || "Registro excluido com sucesso.", "success");
+      await carregarTriagens();
+    } catch (error) {
+      console.error("[DashboardTriagem] Erro tecnico ao excluir triagem:", {
+        error,
+        message: error?.message,
+      });
+      showAlert(
+        getFriendlyApiErrorMessage(
+          error,
+          "Nao foi possivel excluir a triagem no momento.",
+        ),
+        "error",
+      );
+    }
+  }, [carregarTriagens, showAlert]);
 
   const handleEdit = useCallback((triagem) => {
     if (!triagem?.id) {
@@ -180,29 +199,45 @@ export default function DashboardTriagem() {
     navigate(`/editar/${triagem.id}`);
   }, [navigate, showAlert]);
 
-  const processRowUpdate = (newRow) => {
-    const triagemAtualizada = {
-      ...newRow,
-      finalizado: newRow.status === "Finalizado",
-    };
+  const processRowUpdate = async (newRow, oldRow) => {
+    try {
+      const payload = {};
+      const novoFinalizado = newRow.status === "Finalizado";
+      const finalizadoAnterior = oldRow.status === "Finalizado";
 
-    delete triagemAtualizada.status;
+      if (novoFinalizado !== finalizadoAnterior) {
+        payload.finalizado = novoFinalizado;
+      }
 
-    const triagensAtualizadas = triagens.map((triagem) =>
-      String(triagem.id) === String(newRow.id)
-        ? { ...triagem, ...triagemAtualizada }
-        : triagem,
-    );
+      if (newRow.observacoes !== oldRow.observacoes) {
+        payload.observacoes = newRow.observacoes;
+      }
 
-    setTriagens(triagensAtualizadas);
-    localStorage.setItem("triagens_at", JSON.stringify(triagensAtualizadas));
-    showAlert("Campo atualizado rapidamente!", "success");
+      if (Object.keys(payload).length === 0) {
+        return oldRow;
+      }
 
-    return {
-      ...newRow,
-      finalizado: triagemAtualizada.finalizado,
-      status: triagemAtualizada.finalizado ? "Finalizado" : "Pendente",
-    };
+      const data = await atualizarTriagem(newRow.id, payload);
+
+      if (!data?.success) {
+        throw new Error(data?.message || "Nao foi possivel atualizar a triagem.");
+      }
+
+      showAlert(data?.message || "Campo atualizado rapidamente!", "success");
+      await carregarTriagens();
+
+      return {
+        ...newRow,
+        finalizado: novoFinalizado ? 1 : 0,
+        status: novoFinalizado ? "Finalizado" : "Pendente",
+      };
+    } catch (error) {
+      console.error("[DashboardTriagem] Erro tecnico na edicao rapida:", {
+        error,
+        message: error?.message,
+      });
+      throw error;
+    }
   };
 
   const handleProcessRowUpdateError = () => {
@@ -218,44 +253,34 @@ export default function DashboardTriagem() {
         valueFormatter: (value) => formatDateBr(value),
       },
       {
-        field: "codigoRastreio",
+        field: "codigo_rastreio",
         headerName: "Rastreio",
         minWidth: 170,
         flex: 1,
       },
       {
-        field: "operador",
+        field: "operador_nome",
         headerName: "Operador",
         minWidth: 150,
         flex: 1,
-        editable: true,
-        type: "singleSelect",
-        valueOptions: operadorOptions,
       },
       {
         field: "motivo",
         headerName: "Motivo",
         minWidth: 160,
         flex: 1,
-        editable: true,
-        type: "singleSelect",
-        valueOptions: motivoOptions,
       },
       {
         field: "defeito",
         headerName: "Defeito",
         minWidth: 160,
         flex: 1,
-        editable: true,
-        type: "singleSelect",
-        valueOptions: defeitoOptions,
       },
       {
-        field: "numeroChamado",
+        field: "numero_chamado",
         headerName: "Numero do Chamado",
         minWidth: 170,
         flex: 1,
-        editable: true,
       },
       {
         field: "observacoes",
@@ -279,7 +304,7 @@ export default function DashboardTriagem() {
         editable: true,
         type: "singleSelect",
         valueOptions: ["Pendente", "Finalizado"],
-        valueGetter: (_, row) => (row.finalizado ? "Finalizado" : "Pendente"),
+        valueGetter: (_, row) => (isTriagemFinalizada(row) ? "Finalizado" : "Pendente"),
         renderCell: (params) => {
           const isFinalizado = params.value === "Finalizado";
 
@@ -320,16 +345,16 @@ export default function DashboardTriagem() {
         ),
       },
     ],
-    [operadorOptions, handleEdit, handleDelete],
+    [handleEdit, handleDelete, isTriagemFinalizada],
   );
 
   const rows = useMemo(
     () =>
       triagensFiltradas.map((triagem) => ({
         ...triagem,
-        status: triagem.finalizado ? "Finalizado" : "Pendente",
+        status: isTriagemFinalizada(triagem) ? "Finalizado" : "Pendente",
       })),
-    [triagensFiltradas],
+    [triagensFiltradas, isTriagemFinalizada],
   );
 
   const totalFinalizadas = useMemo(

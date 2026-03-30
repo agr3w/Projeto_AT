@@ -96,3 +96,53 @@ export async function salvarTriagem(dados) {
     );
   }
 }
+
+export async function listarTriagens() {
+  try {
+    const response = await fetch("http://localhost/api-triagem/listar_triagens.php", {
+      method: "GET",
+    });
+
+    return await response.json();
+  } catch (error) {
+    throw new Error(
+      error?.message || "Falha de rede ao listar triagens.",
+    );
+  }
+}
+
+export async function excluirTriagem(id) {
+  try {
+    const response = await fetch("http://localhost/api-triagem/excluir_triagem.php", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    throw new Error(
+      error?.message || "Falha de rede ao excluir triagem.",
+    );
+  }
+}
+
+export async function atualizarTriagem(id, dados) {
+  try {
+    const response = await fetch("http://localhost/api-triagem/atualizar_triagem.php", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id, ...dados }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    throw new Error(
+      error?.message || "Falha de rede ao atualizar triagem.",
+    );
+  }
+}
