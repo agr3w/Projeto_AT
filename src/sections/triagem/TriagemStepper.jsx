@@ -71,7 +71,6 @@ export default function TriagemStepper() {
   const { showAlert } = useAlert();
   const codigoRastreioInputRef = useRef(null);
   const [activeStep, setActiveStep] = useState(0);
-  const [isContinuo, setIsContinuo] = useState(false);
   const [formData, setFormData] = useState(() => {
     if (!id) {
       return createInitialFormData();
@@ -156,10 +155,25 @@ export default function TriagemStepper() {
 
   const handleNext = useCallback(async () => {
     if (isLastStep) {
+      if (!user?.id) {
+        showAlert("Usuario nao autenticado. Faca login novamente.", "error");
+        return;
+      }
+
       try {
         const payload = {
-          ...formData,
-          ...(isEditing ? { id: Number.isNaN(Number(id)) ? id : Number(id) } : {}),
+          usuario_id: user.id,
+          codigo_rastreio: formData.codigoRastreio,
+          motivo: formData.motivo,
+          defeito: formData.defeito,
+          numero_chamado: formData.numeroChamado,
+          observacoes: formData.observacoes,
+          link: formData.link,
+          equipamentos: formData.equipamentos.map((equipamento) => ({
+            conteudo: equipamento.conteudo,
+            quantidade: equipamento.quantidade,
+            mac_address: equipamento.macAddress,
+          })),
         };
 
         const data = await salvarTriagem(payload);
@@ -173,6 +187,10 @@ export default function TriagemStepper() {
           isEditing ? "Triagem atualizada com sucesso!" : "Triagem salva com sucesso!",
           "success",
         );
+
+        setFormData(createInitialFormData());
+        setActiveStep(0);
+        navigate("/dashboard");
       } catch (error) {
         console.error("[TriagemStepper] Erro tecnico ao salvar triagem:", {
           error,
@@ -187,29 +205,11 @@ export default function TriagemStepper() {
         );
         return;
       }
-
-      if (isEditing) {
-        navigate("/dashboard");
-        return;
-      }
-
-      if (isContinuo) {
-        setFormData((previous) => ({
-          ...createInitialFormData(),
-          data: previous.data || createInitialFormData().data,
-          operador: previous.operador || "",
-        }));
-        setActiveStep(0);
-        return;
-      }
-
-      setFormData(createInitialFormData());
-      setActiveStep(0);
       return;
     }
 
     setActiveStep((previous) => previous + 1);
-  }, [formData, id, isContinuo, isEditing, isLastStep, navigate, showAlert]);
+  }, [formData, isEditing, isLastStep, navigate, showAlert, user?.id]);
 
   const handleBack = () => {
     setActiveStep((previous) => previous - 1);
@@ -574,20 +574,6 @@ export default function TriagemStepper() {
       </Stepper>
 
       <Box>{renderStepContent()}</Box>
-
-      {isLastStep && !isEditing && (
-        <Box sx={{ mt: 3 }}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={isContinuo}
-                onChange={(event) => setIsContinuo(event.target.checked)}
-              />
-            }
-            label="Modo Continuo (Salvar e Continuar)"
-          />
-        </Box>
-      )}
 
       <Box
         sx={{

@@ -80,8 +80,19 @@ export async function loginUser(email, senha) {
 }
 
 export async function salvarTriagem(dados) {
-  return requestJson("salvar_triagem.php", {
-    method: "POST",
-    body: JSON.stringify(dados),
-  });
+  try {
+    const response = await fetch("http://localhost/api-triagem/salvar_triagem.php", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(dados),
+    });
+
+    return await response.json();
+  } catch (error) {
+    throw new Error(
+      error?.message || "Falha de rede ao salvar triagem.",
+    );
+  }
 }
