@@ -1,5 +1,35 @@
 const API_BASE_URL = "http://localhost/api-triagem";
 
+export function getFriendlyApiErrorMessage(
+  error,
+  fallbackMessage = "Nao foi possivel concluir a operacao no momento. Tente novamente.",
+) {
+  const technicalMessage =
+    typeof error?.message === "string" ? error.message : String(error || "");
+
+  if (/Failed to fetch|NetworkError|ERR_CONNECTION/i.test(technicalMessage)) {
+    return "Nao foi possivel conectar ao servidor. Verifique se a API esta ativa.";
+  }
+
+  if (/HTTP\s*401|HTTP\s*403/i.test(technicalMessage)) {
+    return "Acesso negado. Verifique suas credenciais e permissoes.";
+  }
+
+  if (/HTTP\s*404/i.test(technicalMessage)) {
+    return "Servico da API nao encontrado. Verifique a URL e os arquivos no servidor.";
+  }
+
+  if (/HTTP\s*5\d{2}/i.test(technicalMessage)) {
+    return "O servidor encontrou um erro interno. Tente novamente em instantes.";
+  }
+
+  if (/Resposta inesperada da API|JSON/i.test(technicalMessage)) {
+    return "O servidor respondeu em formato invalido. Tente novamente em instantes.";
+  }
+
+  return fallbackMessage;
+}
+
 async function requestJson(endpoint, options = {}) {
   const hasBody = options.body !== undefined && options.body !== null;
   const headers = {
@@ -12,10 +42,27 @@ async function requestJson(endpoint, options = {}) {
     ...options,
   });
 
-  const data = await response.json();
+  const rawText = await response.text();
+  let data = null;
+
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      data = null;
+    }
+  }
 
   if (!response.ok) {
-    throw new Error(data?.message || "Erro na comunicacao com a API.");
+    const statusInfo = `HTTP ${response.status}`;
+    const message = data?.message || rawText || "Erro na comunicacao com a API.";
+    throw new Error(`${statusInfo}: ${message}`);
+  }
+
+  if (data === null) {
+    throw new Error(
+      "Resposta inesperada da API (nao veio JSON valido).",
+    );
   }
 
   return data;

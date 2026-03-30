@@ -26,7 +26,7 @@ import { useNavigate } from "react-router-dom";
 import { useAlert } from "../../hooks/useAlert";
 import { useAuth } from "../../hooks/useAuth";
 import { defeitoOptions, motivoOptions } from "../../data/triagemOptions";
-import { testarConexao } from "../../services/api";
+import { getFriendlyApiErrorMessage, testarConexao } from "../../services/api";
 
 const dashboardTheme = createTheme({
   palette: {
@@ -96,7 +96,17 @@ export default function DashboardTriagem() {
         const dados = await testarConexao();
         console.log("RESPOSTA DO SERVIDOR PHP:", dados);
       } catch (erro) {
-        console.error("Erro ao conectar com o PHP:", erro);
+        console.error("[DashboardTriagem] Erro tecnico ao testar conexao:", {
+          erro,
+          message: erro?.message,
+        });
+        showAlert(
+          getFriendlyApiErrorMessage(
+            erro,
+            "Nao foi possivel validar a conexao com o servidor.",
+          ),
+          "warning",
+        );
       }
     };
 

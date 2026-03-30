@@ -25,7 +25,7 @@ import {
   operadorOptions,
 } from "../../data/triagemOptions";
 import { useAuth } from "../../hooks/useAuth";
-import { salvarTriagem } from "../../services/api";
+import { getFriendlyApiErrorMessage, salvarTriagem } from "../../services/api";
 
 const steps = ["Identificacao", "Equipamento", "Diagnostico", "Conclusao"];
 
@@ -174,8 +174,17 @@ export default function TriagemStepper() {
           "success",
         );
       } catch (error) {
-        console.error("Erro ao salvar triagem:", error);
-        showAlert("Erro ao conectar com o servidor PHP.", "error");
+        console.error("[TriagemStepper] Erro tecnico ao salvar triagem:", {
+          error,
+          message: error?.message,
+        });
+        showAlert(
+          getFriendlyApiErrorMessage(
+            error,
+            "Nao foi possivel salvar a triagem no momento.",
+          ),
+          "error",
+        );
         return;
       }
 

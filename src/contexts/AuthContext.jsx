@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { AuthContext } from "./AuthContextObject";
-import { loginUser } from "../services/api";
+import { getFriendlyApiErrorMessage, loginUser } from "../services/api";
 
 const AUTH_STORAGE_KEY = "auth_user";
 
@@ -32,10 +32,16 @@ export function AuthProvider({ children }) {
 
       return { success: true, user: data.user };
     } catch (error) {
-      console.error("Erro no login:", error);
+      console.error("[AuthContext] Erro tecnico no login:", {
+        error,
+        message: error?.message,
+      });
       return {
         success: false,
-        message: "Erro ao conectar com o servidor PHP.",
+        message: getFriendlyApiErrorMessage(
+          error,
+          "Nao foi possivel realizar login no momento. Tente novamente.",
+        ),
       };
     }
   };
