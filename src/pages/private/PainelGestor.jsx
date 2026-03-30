@@ -11,128 +11,94 @@ import {
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { BarChart, PieChart } from "@mui/x-charts";
+import { BarChart, LineChart } from "@mui/x-charts";
 import { useNavigate } from "react-router-dom";
-
-const safeParseTriagens = () => {
-  try {
-    const parsed = JSON.parse(localStorage.getItem("triagens_at") || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const getModa = (values) => {
-  const contador = values.reduce((acc, valor) => {
-    const key = valor && String(valor).trim() ? String(valor).trim() : "Nao informado";
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
-
-  const entries = Object.entries(contador);
-  if (entries.length === 0) {
-    return "-";
-  }
-
-  entries.sort((a, b) => b[1] - a[1]);
-  return entries[0][0];
-};
-
-const isWithinRange = (dateString, startDate, endDate) => {
-  if (!dateString) {
-    return false;
-  }
-
-  if (startDate && dateString < startDate) {
-    return false;
-  }
-
-  if (endDate && dateString > endDate) {
-    return false;
-  }
-
-  return true;
-};
+import Loading from "../../components/ui/Loading";
+import { buscarEstatisticas, getFriendlyApiErrorMessage } from "../../services/api";
+import { useAlert } from "../../hooks/useAlert";
 
 export default function PainelGestor() {
   const navigate = useNavigate();
-  const [triagens, setTriagens] = useState(safeParseTriagens);
+  const { showAlert } = useAlert();
+  const [stats, setStats] = useState(null);
   const [dataInicial, setDataInicial] = useState("");
   const [dataFinal, setDataFinal] = useState("");
 
+  const carregarEstatisticas = async (filtros = {}) => {
+    try {
+      const data = await buscarEstatisticas(filtros);
+
+      if (!data?.success) {
+        showAlert(data?.message || "Nao foi possivel carregar as estatisticas.", "error");
+        setStats({ resumo: { total: 0, finalizados: 0, pendentes: 0 }, defeitos: [], dias: [] });
+        return;
+      }
+
+      setStats({
+        resumo: {
+          total: Number(data?.data?.resumo?.total || 0),
+          finalizados: Number(data?.data?.resumo?.finalizados || 0),
+          pendentes: Number(data?.data?.resumo?.pendentes || 0),
+        },
+        defeitos: Array.isArray(data?.data?.defeitos) ? data.data.defeitos : [],
+        dias: Array.isArray(data?.data?.dias) ? data.data.dias : [],
+      });
+    } catch (error) {
+      console.error("[PainelGestor] Erro tecnico ao buscar estatisticas:", {
+        error,
+        message: error?.message,
+      });
+      showAlert(
+        getFriendlyApiErrorMessage(
+          error,
+          "Nao foi possivel carregar as estatisticas no momento.",
+        ),
+        "error",
+      );
+      setStats({ resumo: { total: 0, finalizados: 0, pendentes: 0 }, defeitos: [], dias: [] });
+    }
+  };
+
   useEffect(() => {
-    const syncTriagens = () => {
-      setTriagens(safeParseTriagens());
-    };
-
-    window.addEventListener("storage", syncTriagens);
-    window.addEventListener("focus", syncTriagens);
-
-    return () => {
-      window.removeEventListener("storage", syncTriagens);
-      window.removeEventListener("focus", syncTriagens);
-    };
+    carregarEstatisticas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const triagensFiltradas = useMemo(() => {
-    return triagens.filter((triagem) =>
-      isWithinRange(triagem.data, dataInicial, dataFinal),
-    );
-  }, [triagens, dataInicial, dataFinal]);
+  const handleAplicarFiltros = () => {
+    carregarEstatisticas({ dataInicial, dataFinal });
+  };
 
-  const totalEquipamentos = useMemo(() => {
-    return triagensFiltradas.reduce((acc, triagem) => {
-      const totalTriagem = (triagem.equipamentos || []).reduce((sum, item) => {
-        const quantidade = Number(item.quantidade) || 0;
-        return sum + quantidade;
-      }, 0);
+  const handleLimparFiltros = () => {
+    setDataInicial("");
+    setDataFinal("");
+    carregarEstatisticas();
+  };
 
-      return acc + totalTriagem;
-    }, 0);
-  }, [triagensFiltradas]);
+  const defeitosBarData = useMemo(() => {
+    if (!stats) {
+      return { labels: [], values: [] };
+    }
 
-  const motivoMaisComum = useMemo(
-    () => getModa(triagensFiltradas.map((item) => item.motivo)),
-    [triagensFiltradas],
-  );
-
-  const defeitoMaisComum = useMemo(
-    () => getModa(triagensFiltradas.map((item) => item.defeito)),
-    [triagensFiltradas],
-  );
-
-  const defeitoBarData = useMemo(() => {
-    const counts = triagensFiltradas.reduce((acc, triagem) => {
-      const key = triagem.defeito && triagem.defeito.trim() ? triagem.defeito : "Nao informado";
-      const equipamentosTriagem = (triagem.equipamentos || []).reduce((sum, item) => {
-        const quantidade = Number(item.quantidade) || 0;
-        return sum + quantidade;
-      }, 0);
-
-      acc[key] = (acc[key] || 0) + equipamentosTriagem;
-      return acc;
-    }, {});
-
-    const labels = Object.keys(counts);
-    const values = labels.map((label) => counts[label]);
+    const labels = stats.defeitos.map((item) => item.defeito || "Nao informado");
+    const values = stats.defeitos.map((item) => Number(item.quantidade || 0));
 
     return { labels, values };
-  }, [triagensFiltradas]);
+  }, [stats]);
 
-  const motivosPieData = useMemo(() => {
-    const counts = triagensFiltradas.reduce((acc, triagem) => {
-      const key = triagem.motivo && triagem.motivo.trim() ? triagem.motivo : "Nao informado";
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
+  const evolucaoDiasData = useMemo(() => {
+    if (!stats) {
+      return { labels: [], values: [] };
+    }
 
-    return Object.entries(counts).map(([label, value], index) => ({
-      id: index,
-      value,
-      label,
-    }));
-  }, [triagensFiltradas]);
+    const labels = stats.dias.map((item) => item.data || "-");
+    const values = stats.dias.map((item) => Number(item.quantidade || 0));
+
+    return { labels, values };
+  }, [stats]);
+
+  if (!stats) {
+    return <Loading />;
+  }
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -167,7 +133,7 @@ export default function PainelGestor() {
       </Box>
 
       <Paper elevation={1} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-        <Grid container spacing={2}>
+        <Grid container spacing={2} alignItems="center">
           <Grid size={{ xs: 12, md: 3 }}>
             <TextField
               fullWidth
@@ -188,70 +154,68 @@ export default function PainelGestor() {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Box sx={{ display: "flex", gap: 1.5, justifyContent: { xs: "flex-start", md: "flex-end" } }}>
+              <Button variant="contained" onClick={handleAplicarFiltros}>
+                Aplicar Filtros
+              </Button>
+              <Button variant="outlined" onClick={handleLimparFiltros}>
+                Limpar
+              </Button>
+            </Box>
+          </Grid>
         </Grid>
       </Paper>
 
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, gap: 2, mb: 3 }}>
+        <Box>
           <Card elevation={1} sx={{ borderRadius: 2 }}>
             <CardContent>
               <Typography variant="body2" color="text.secondary">
                 Total de Triagens
               </Typography>
               <Typography variant="h4" fontWeight={700} color="primary.main">
-                {triagensFiltradas.length}
+                {stats.resumo.total}
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+        </Box>
+        <Box>
           <Card elevation={1} sx={{ borderRadius: 2 }}>
             <CardContent>
               <Typography variant="body2" color="text.secondary">
-                Total de Equipamentos
+                Finalizadas
               </Typography>
               <Typography variant="h4" fontWeight={700} color="primary.main">
-                {totalEquipamentos}
+                {stats.resumo.finalizados}
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+        </Box>
+        <Box>
           <Card elevation={1} sx={{ borderRadius: 2 }}>
             <CardContent>
               <Typography variant="body2" color="text.secondary">
-                Motivo Mais Comum
+                Pendentes
               </Typography>
-              <Typography variant="h6" fontWeight={700} color="primary.main">
-                {motivoMaisComum}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <Card elevation={1} sx={{ borderRadius: 2 }}>
-            <CardContent>
-              <Typography variant="body2" color="text.secondary">
-                Defeito Mais Comum
-              </Typography>
-              <Typography variant="h6" fontWeight={700} color="primary.main">
-                {defeitoMaisComum}
+              <Typography variant="h4" fontWeight={700} color="primary.main">
+                {stats.resumo.pendentes}
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, lg: 7 }}>
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2 }}>
+        <Box>
           <Paper elevation={1} sx={{ p: 2, borderRadius: 2 }}>
             <Typography variant="h6" fontWeight={700} mb={2}>
-              Equipamentos com Defeito por Tipo
+              Defeitos Mais Comuns
             </Typography>
-            {defeitoBarData.labels.length > 0 ? (
+            {defeitosBarData.labels.length > 0 ? (
               <BarChart
-                xAxis={[{ scaleType: "band", data: defeitoBarData.labels }]}
-                series={[{ data: defeitoBarData.values, label: "Equipamentos" }]}
+                xAxis={[{ scaleType: "band", data: defeitosBarData.labels }]}
+                series={[{ data: defeitosBarData.values, label: "Quantidade" }]}
                 height={320}
               />
             ) : (
@@ -260,22 +224,20 @@ export default function PainelGestor() {
               </Typography>
             )}
           </Paper>
-        </Grid>
+        </Box>
 
-        <Grid size={{ xs: 12, lg: 5 }}>
+        <Box>
           <Paper elevation={1} sx={{ p: 2, borderRadius: 2 }}>
             <Typography variant="h6" fontWeight={700} mb={2}>
-              Distribuicao de Motivos
+              Evolucao Diaria
             </Typography>
-            {motivosPieData.length > 0 ? (
-              <PieChart
+            {evolucaoDiasData.labels.length > 0 ? (
+              <LineChart
+                xAxis={[{ scaleType: "point", data: evolucaoDiasData.labels }]}
                 series={[
                   {
-                    data: motivosPieData,
-                    innerRadius: 45,
-                    outerRadius: 100,
-                    paddingAngle: 2,
-                    cornerRadius: 4,
+                    data: evolucaoDiasData.values,
+                    label: "Triagens",
                   },
                 ]}
                 height={320}
@@ -286,8 +248,8 @@ export default function PainelGestor() {
               </Typography>
             )}
           </Paper>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Container>
   );
 }

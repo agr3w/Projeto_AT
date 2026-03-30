@@ -25,6 +25,7 @@ import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { useAlert } from "../../hooks/useAlert";
 import { useAuth } from "../../hooks/useAuth";
+import { defeitoOptions, motivoOptions } from "../../data/triagemOptions";
 import {
   atualizarTriagem,
   excluirTriagem,
@@ -213,6 +214,18 @@ export default function DashboardTriagem() {
         payload.observacoes = newRow.observacoes;
       }
 
+      if (newRow.motivo !== oldRow.motivo) {
+        payload.motivo = newRow.motivo;
+      }
+
+      if (newRow.defeito !== oldRow.defeito) {
+        payload.defeito = newRow.defeito;
+      }
+
+      if (newRow.numero_chamado !== oldRow.numero_chamado) {
+        payload.numero_chamado = newRow.numero_chamado;
+      }
+
       if (Object.keys(payload).length === 0) {
         return oldRow;
       }
@@ -269,18 +282,25 @@ export default function DashboardTriagem() {
         headerName: "Motivo",
         minWidth: 160,
         flex: 1,
+        editable: true,
+        type: "singleSelect",
+        valueOptions: motivoOptions,
       },
       {
         field: "defeito",
         headerName: "Defeito",
         minWidth: 160,
         flex: 1,
+        editable: true,
+        type: "singleSelect",
+        valueOptions: defeitoOptions,
       },
       {
         field: "numero_chamado",
         headerName: "Numero do Chamado",
         minWidth: 170,
         flex: 1,
+        editable: true,
       },
       {
         field: "observacoes",

@@ -146,3 +146,32 @@ export async function atualizarTriagem(id, dados) {
     );
   }
 }
+
+export async function buscarEstatisticas(filters = {}) {
+  try {
+    const params = new URLSearchParams();
+
+    if (filters.dataInicial) {
+      params.set("data_inicial", filters.dataInicial);
+    }
+
+    if (filters.dataFinal) {
+      params.set("data_final", filters.dataFinal);
+    }
+
+    const queryString = params.toString();
+    const url = queryString
+      ? `http://localhost/api-triagem/estatisticas.php?${queryString}`
+      : "http://localhost/api-triagem/estatisticas.php";
+
+    const response = await fetch(url, {
+      method: "GET",
+    });
+
+    return await response.json();
+  } catch (error) {
+    throw new Error(
+      error?.message || "Falha de rede ao buscar estatisticas.",
+    );
+  }
+}
