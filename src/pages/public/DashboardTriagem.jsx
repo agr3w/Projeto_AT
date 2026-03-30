@@ -89,8 +89,16 @@ export default function DashboardTriagem() {
   const [operadorFilter, setOperadorFilter] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
 
-  // TESTE DE CONEXÃO COM O PHP
+  // Teste automatico de conexao: so roda em desenvolvimento
   useEffect(() => {
+    const shouldRunApiHealthcheck =
+      import.meta.env.DEV ||
+      String(import.meta.env.VITE_ENABLE_API_HEALTHCHECK).toLowerCase() === "true";
+
+    if (!shouldRunApiHealthcheck) {
+      return;
+    }
+
     const testarAPI = async () => {
       try {
         const dados = await testarConexao();
@@ -111,7 +119,7 @@ export default function DashboardTriagem() {
     };
 
     testarAPI();
-  }, []);
+  }, [showAlert]);
 
   const operadorOptions = useMemo(() => {
     const operadores = triagens
