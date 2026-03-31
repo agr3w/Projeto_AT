@@ -5,15 +5,14 @@ import {
   Card,
   CardContent,
   Container,
-  Grid,
   Paper,
-  TextField,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { BarChart, LineChart } from "@mui/x-charts";
 import { useNavigate } from "react-router-dom";
 import Loading from "../../components/ui/Loading";
+import DateRangeFilters from "../../sections/filters/DateRangeFilters";
 import { buscarEstatisticas, getFriendlyApiErrorMessage } from "../../services/api";
 import { useAlert } from "../../hooks/useAlert";
 
@@ -23,8 +22,14 @@ export default function PainelGestor() {
   const [stats, setStats] = useState(null);
   const [dataInicial, setDataInicial] = useState("");
   const [dataFinal, setDataFinal] = useState("");
+  const [isFiltrando, setIsFiltrando] = useState(false);
+
+  const hasRangeInvalido = useMemo(() => {
+    return Boolean(dataInicial && dataFinal && dataInicial > dataFinal);
+  }, [dataInicial, dataFinal]);
 
   const carregarEstatisticas = async (filtros = {}) => {
+    setIsFiltrando(true);
     try {
       const data = await buscarEstatisticas(filtros);
 
@@ -56,6 +61,8 @@ export default function PainelGestor() {
         "error",
       );
       setStats({ resumo: { total: 0, finalizados: 0, pendentes: 0 }, defeitos: [], dias: [] });
+    } finally {
+      setIsFiltrando(false);
     }
   };
 
@@ -65,6 +72,11 @@ export default function PainelGestor() {
   }, []);
 
   const handleAplicarFiltros = () => {
+    if (hasRangeInvalido) {
+      showAlert("Periodo invalido: a data inicial nao pode ser maior que a data final.", "warning");
+      return;
+    }
+
     carregarEstatisticas({ dataInicial, dataFinal });
   };
 
@@ -95,6 +107,30 @@ export default function PainelGestor() {
 
     return { labels, values };
   }, [stats]);
+
+  const periodoAtivoLabel = useMemo(() => {
+    const formatar = (dataIso) => {
+      if (!dataIso || !dataIso.includes("-")) {
+        return dataIso || "-";
+      }
+
+      return dataIso.split("-").reverse().join("/");
+    };
+
+    if (dataInicial && dataFinal) {
+      return `Periodo: ${formatar(dataInicial)} ate ${formatar(dataFinal)}`;
+    }
+
+    if (dataInicial) {
+      return `Periodo: a partir de ${formatar(dataInicial)}`;
+    }
+
+    if (dataFinal) {
+      return `Periodo: ate ${formatar(dataFinal)}`;
+    }
+
+    return "Periodo: geral (sem filtro)";
+  }, [dataInicial, dataFinal]);
 
   if (!stats) {
     return <Loading />;
@@ -133,38 +169,36 @@ export default function PainelGestor() {
       </Box>
 
       <Paper elevation={1} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid size={{ xs: 12, md: 3 }}>
-            <TextField
-              fullWidth
-              label="Data Inicial"
-              type="date"
-              value={dataInicial}
-              onChange={(event) => setDataInicial(event.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <TextField
-              fullWidth
-              label="Data Final"
-              type="date"
-              value={dataFinal}
-              onChange={(event) => setDataFinal(event.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ display: "flex", gap: 1.5, justifyContent: { xs: "flex-start", md: "flex-end" } }}>
-              <Button variant="contained" onClick={handleAplicarFiltros}>
-                Aplicar Filtros
-              </Button>
-              <Button variant="outlined" onClick={handleLimparFiltros}>
-                Limpar
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
+        <DateRangeFilters
+          dataInicial={dataInicial}
+          dataFinal={dataFinal}
+          onDataInicialChange={setDataInicial}
+          onDataFinalChange={setDataFinal}
+          hasRangeInvalido={hasRangeInvalido}
+          showActions
+          onApply={handleAplicarFiltros}
+          onClear={handleLimparFiltros}
+          disableApply={hasRangeInvalido || isFiltrando}
+          disableClear={isFiltrando}
+          isApplying={isFiltrando}
+        />
+      </Paper>
+
+      <Paper
+        elevation={0}
+        sx={{
+          mb: 2,
+          px: 2,
+          py: 1.2,
+          borderRadius: 2,
+          border: "1px dashed",
+          borderColor: "divider",
+          bgcolor: "#f8fbff",
+        }}
+      >
+        <Typography variant="body2" color="text.secondary" fontWeight={600}>
+          {periodoAtivoLabel}
+        </Typography>
       </Paper>
 
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, gap: 2, mb: 3 }}>

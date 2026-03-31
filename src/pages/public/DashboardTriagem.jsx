@@ -1,31 +1,22 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import {
-  Autocomplete,
   Box,
-  Button,
   Chip,
   Container,
   CssBaseline,
-  FormControl,
-  Grid,
   IconButton,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  TextField,
-  Typography,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import BarChartIcon from "@mui/icons-material/BarChart";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
-import { DataGrid } from "@mui/x-data-grid";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { useAlert } from "../../hooks/useAlert";
 import { useAuth } from "../../hooks/useAuth";
+import { useDashboardFilters } from "../../hooks/useDashboardFilters";
 import { defeitoOptions, motivoOptions } from "../../data/triagemOptions";
+import DashboardHeaderActions from "../../sections/dashboard/DashboardHeaderActions";
+import DashboardFilters from "../../sections/dashboard/DashboardFilters";
+import DashboardGridSection from "../../sections/dashboard/DashboardGridSection";
 import {
   atualizarTriagem,
   excluirTriagem,
@@ -51,9 +42,17 @@ export default function DashboardTriagem() {
   const { user } = useAuth();
 
   const [triagens, setTriagens] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [operadorFilter, setOperadorFilter] = useState(null);
-  const [statusFilter, setStatusFilter] = useState("");
+  const {
+    filtrosDigitados,
+    filtrosAplicados,
+    hasRangeInvalido,
+    hasAlteracoesNaoAplicadas,
+    quantidadeFiltrosAtivos,
+    hasFiltrosAtivos,
+    setFiltro,
+    aplicarFiltros,
+    limparFiltros,
+  } = useDashboardFilters();
 
   const isTriagemFinalizada = useCallback((triagem) => {
     const value = triagem?.finalizado;
@@ -130,9 +129,25 @@ export default function DashboardTriagem() {
     return Array.from(new Set(operadores));
   }, [triagens]);
 
+  const motivoFilterOptions = useMemo(() => {
+    const motivos = triagens
+      .map((triagem) => triagem.motivo)
+      .filter((motivo) => Boolean(motivo && motivo.trim()));
+
+    return Array.from(new Set(motivos));
+  }, [triagens]);
+
+  const defeitoFilterOptions = useMemo(() => {
+    const defeitos = triagens
+      .map((triagem) => triagem.defeito)
+      .filter((defeito) => Boolean(defeito && defeito.trim()));
+
+    return Array.from(new Set(defeitos));
+  }, [triagens]);
+
   const triagensFiltradas = useMemo(() => {
     return triagens.filter((triagem) => {
-      const termo = searchTerm.trim().toLowerCase();
+      const termo = filtrosAplicados.searchTerm.trim().toLowerCase();
       const codigo = (triagem.codigo_rastreio || "").toLowerCase();
       const macs = (triagem.equipamentos || [])
         .map((equipamento) => (equipamento.mac_address || "").toLowerCase())
@@ -141,13 +156,52 @@ export default function DashboardTriagem() {
       const matchBusca =
         !termo || codigo.includes(termo) || macs.includes(termo);
       const matchOperador =
-        !operadorFilter || triagem.operador_nome === operadorFilter;
+        !filtrosAplicados.operador || triagem.operador_nome === filtrosAplicados.operador;
+      const matchMotivo = !filtrosAplicados.motivo || triagem.motivo === filtrosAplicados.motivo;
+      const matchDefeito = !filtrosAplicados.defeito || triagem.defeito === filtrosAplicados.defeito;
       const statusTriagem = isTriagemFinalizada(triagem) ? "Finalizado" : "Pendente";
-      const matchStatus = !statusFilter || statusTriagem === statusFilter;
+      const matchStatus = !filtrosAplicados.status || statusTriagem === filtrosAplicados.status;
+      const matchNumeroChamado =
+        !filtrosAplicados.numeroChamado ||
+        String(triagem.numero_chamado || "")
+          .toLowerCase()
+          .includes(filtrosAplicados.numeroChamado.trim().toLowerCase());
+      const matchDataInicial = !filtrosAplicados.dataInicial || (triagem.data || "") >= filtrosAplicados.dataInicial;
+      const matchDataFinal = !filtrosAplicados.dataFinal || (triagem.data || "") <= filtrosAplicados.dataFinal;
+      const matchComLink = !filtrosAplicados.apenasComLink || Boolean(String(triagem.link || "").trim());
+      const matchComObservacoes =
+        !filtrosAplicados.apenasComObservacoes || Boolean(String(triagem.observacoes || "").trim());
 
-      return matchBusca && matchOperador && matchStatus;
+      return (
+        matchBusca &&
+        matchOperador &&
+        matchMotivo &&
+        matchDefeito &&
+        matchStatus &&
+        matchNumeroChamado &&
+        matchDataInicial &&
+        matchDataFinal &&
+        matchComLink &&
+        matchComObservacoes
+      );
     });
-  }, [triagens, searchTerm, operadorFilter, statusFilter, isTriagemFinalizada]);
+  }, [
+    triagens,
+    filtrosAplicados,
+    isTriagemFinalizada,
+  ]);
+
+  const handleAplicarFiltros = () => {
+    const applied = aplicarFiltros();
+
+    if (!applied) {
+      showAlert("A data inicial nao pode ser maior que a data final.", "warning");
+    }
+  };
+
+  const handleLimparFiltros = () => {
+    limparFiltros();
+  };
 
   const formatDateBr = (dateString) => {
     if (!dateString || !dateString.includes("-")) {
@@ -200,7 +254,7 @@ export default function DashboardTriagem() {
     navigate(`/editar/${triagem.id}`);
   }, [navigate, showAlert]);
 
-  const processRowUpdate = async (newRow, oldRow) => {
+  const processRowUpdate = useCallback(async (newRow, oldRow) => {
     try {
       const payload = {};
       const novoFinalizado = newRow.status === "Finalizado";
@@ -251,11 +305,11 @@ export default function DashboardTriagem() {
       });
       throw error;
     }
-  };
+  }, [carregarTriagens, showAlert]);
 
-  const handleProcessRowUpdateError = () => {
+  const handleProcessRowUpdateError = useCallback(() => {
     showAlert("Nao foi possivel salvar a edicao rapida.", "error");
-  };
+  }, [showAlert]);
 
   const columns = useMemo(
     () => [
@@ -391,155 +445,34 @@ export default function DashboardTriagem() {
     <ThemeProvider theme={dashboardTheme}>
       <CssBaseline />
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 3,
-            gap: 2,
-            flexWrap: "wrap",
-          }}
-        >
-          <Typography variant="h4" fontWeight={700} color="primary.main">
-            Dashboard de Triagem
-          </Typography>
+        <DashboardHeaderActions
+          isAdmin={user?.role === "admin"}
+          onOpenManagerPanel={() => navigate("/admin")}
+          onOpenNewTriagem={() => navigate("/triagem")}
+        />
 
-          <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-            {user?.role === "admin" && (
-              <Button
-                color="secondary"
-                variant="contained"
-                startIcon={<BarChartIcon />}
-                onClick={() => navigate("/admin")}
-              >
-                Acessar Painel Gestor
-              </Button>
-            )}
+        <DashboardFilters
+          filtros={filtrosDigitados}
+          setFiltro={setFiltro}
+          operadorOptions={operadorOptions}
+          motivoFilterOptions={motivoFilterOptions}
+          defeitoFilterOptions={defeitoFilterOptions}
+          hasRangeInvalido={hasRangeInvalido}
+          hasFiltrosAtivos={hasFiltrosAtivos}
+          hasAlteracoesNaoAplicadas={hasAlteracoesNaoAplicadas}
+          quantidadeFiltrosAtivos={quantidadeFiltrosAtivos}
+          handleAplicarFiltros={handleAplicarFiltros}
+          handleLimparFiltros={handleLimparFiltros}
+        />
 
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => navigate("/triagem")}
-            >
-              Nova Triagem
-            </Button>
-          </Box>
-        </Box>
-
-        <Paper elevation={2} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <TextField
-                fullWidth
-                label="Buscar por Codigo de Rastreio ou MAC Address"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Autocomplete
-                options={operadorOptions}
-                value={operadorFilter}
-                onChange={(_, newValue) => setOperadorFilter(newValue)}
-                renderInput={(params) => (
-                  <TextField {...params} label="Operador" />
-                )}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 3 }}>
-              <FormControl fullWidth>
-                <InputLabel id="status-filter-label">Status</InputLabel>
-                <Select
-                  labelId="status-filter-label"
-                  label="Status"
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value)}
-                >
-                  <MenuItem value="">Todos</MenuItem>
-                  <MenuItem value="Finalizado">Finalizado</MenuItem>
-                  <MenuItem value="Pendente">Pendente</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        </Paper>
-
-        <Box
-          sx={{ display: "flex", gap: 1, mb: 1.5, mt: 0.5, flexWrap: "wrap" }}
-        >
-          <Chip
-            size="small"
-            color="success"
-            label={`Finalizadas: ${totalFinalizadas}`}
-            variant="filled"
-          />
-          <Chip
-            size="small"
-            color="warning"
-            label={`Pendentes: ${totalPendentes}`}
-            variant="outlined"
-          />
-        </Box>
-
-        <Paper elevation={2} sx={{ borderRadius: 2, overflow: "hidden" }}>
-          <DataGrid
-            rows={rows}
-            columns={columns}
-            processRowUpdate={processRowUpdate}
-            onProcessRowUpdateError={handleProcessRowUpdateError}
-            disableRowSelectionOnClick
-            getRowClassName={(params) =>
-              params.row.status === "Finalizado"
-                ? "row-finalizado"
-                : "row-pendente"
-            }
-            pageSizeOptions={[10, 25, 50]}
-            initialState={{
-              pagination: {
-                paginationModel: {
-                  pageSize: 10,
-                  page: 0,
-                },
-              },
-            }}
-            sx={{
-              minHeight: 520,
-              border: 0,
-              "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within": {
-                outline: "none",
-              },
-              "& .MuiDataGrid-columnHeaders": {
-                bgcolor: "#EDF2F7",
-                color: "text.primary",
-              },
-              "& .MuiDataGrid-columnHeaderTitle": {
-                fontWeight: 700,
-              },
-              "& .MuiDataGrid-row": {
-                transition: "background-color 120ms ease",
-              },
-              "& .MuiDataGrid-row:nth-of-type(even)": {
-                bgcolor: "#fafafa",
-              },
-              "& .MuiDataGrid-row:hover": {
-                bgcolor: "#f0f7ff",
-              },
-              "& .MuiDataGrid-row.row-finalizado": {
-                boxShadow: "inset 4px 0 0 #2e7d32",
-              },
-              "& .MuiDataGrid-row.row-pendente": {
-                boxShadow: "inset 4px 0 0 #ed6c02",
-              },
-              "& .MuiDataGrid-footerContainer": {
-                borderTop: "1px solid #dbe8f7",
-                bgcolor: "#f4f8fd",
-              },
-            }}
-          />
-        </Paper>
+        <DashboardGridSection
+          rows={rows}
+          columns={columns}
+          totalFinalizadas={totalFinalizadas}
+          totalPendentes={totalPendentes}
+          processRowUpdate={processRowUpdate}
+          onProcessRowUpdateError={handleProcessRowUpdateError}
+        />
       </Container>
     </ThemeProvider>
   );
