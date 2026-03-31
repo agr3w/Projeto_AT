@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Box, Chip, Paper } from "@mui/material";
+import { Box, Chip, Paper, Typography } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 
 const DashboardGridSection = memo(function DashboardGridSection({
@@ -7,11 +7,18 @@ const DashboardGridSection = memo(function DashboardGridSection({
   columns,
   totalFinalizadas,
   totalPendentes,
+  totalRegistros,
+  filtroTempoMs,
   processRowUpdate,
   onProcessRowUpdateError,
+  isLoading = false,
 }) {
   return (
     <>
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+        Filtro executado em {filtroTempoMs} ms sobre {totalRegistros} registros.
+      </Typography>
+
       <Box sx={{ display: "flex", gap: 1, mb: 1.5, mt: 0.5, flexWrap: "wrap" }}>
         <Chip
           size="small"
@@ -31,6 +38,7 @@ const DashboardGridSection = memo(function DashboardGridSection({
         <DataGrid
           rows={rows}
           columns={columns}
+          loading={isLoading}
           processRowUpdate={processRowUpdate}
           onProcessRowUpdateError={onProcessRowUpdateError}
           disableRowSelectionOnClick

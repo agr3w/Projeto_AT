@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -10,129 +9,29 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { BarChart, LineChart } from "@mui/x-charts";
-import { useNavigate } from "react-router-dom";
 import Loading from "../../components/ui/Loading";
-import DateRangeFilters from "../../sections/filters/DateRangeFilters";
-import { buscarEstatisticas, getFriendlyApiErrorMessage } from "../../services/api";
-import { useAlert } from "../../hooks/useAlert";
+import { usePainelGestorController } from "../../features/gestor";
+import { DateRangeFilters } from "../../features/shared";
 
 export default function PainelGestor() {
-  const navigate = useNavigate();
-  const { showAlert } = useAlert();
-  const [stats, setStats] = useState(null);
-  const [dataInicial, setDataInicial] = useState("");
-  const [dataFinal, setDataFinal] = useState("");
-  const [isFiltrando, setIsFiltrando] = useState(false);
+  const {
+    isLoading,
+    stats,
+    dataInicial,
+    dataFinal,
+    isFiltrando,
+    hasRangeInvalido,
+    defeitosBarData,
+    evolucaoDiasData,
+    periodoAtivoLabel,
+    setDataInicial,
+    setDataFinal,
+    handleAplicarFiltros,
+    handleLimparFiltros,
+    goToDashboard,
+  } = usePainelGestorController();
 
-  const hasRangeInvalido = useMemo(() => {
-    return Boolean(dataInicial && dataFinal && dataInicial > dataFinal);
-  }, [dataInicial, dataFinal]);
-
-  const carregarEstatisticas = async (filtros = {}) => {
-    setIsFiltrando(true);
-    try {
-      const data = await buscarEstatisticas(filtros);
-
-      if (!data?.success) {
-        showAlert(data?.message || "Nao foi possivel carregar as estatisticas.", "error");
-        setStats({ resumo: { total: 0, finalizados: 0, pendentes: 0 }, defeitos: [], dias: [] });
-        return;
-      }
-
-      setStats({
-        resumo: {
-          total: Number(data?.data?.resumo?.total || 0),
-          finalizados: Number(data?.data?.resumo?.finalizados || 0),
-          pendentes: Number(data?.data?.resumo?.pendentes || 0),
-        },
-        defeitos: Array.isArray(data?.data?.defeitos) ? data.data.defeitos : [],
-        dias: Array.isArray(data?.data?.dias) ? data.data.dias : [],
-      });
-    } catch (error) {
-      console.error("[PainelGestor] Erro tecnico ao buscar estatisticas:", {
-        error,
-        message: error?.message,
-      });
-      showAlert(
-        getFriendlyApiErrorMessage(
-          error,
-          "Nao foi possivel carregar as estatisticas no momento.",
-        ),
-        "error",
-      );
-      setStats({ resumo: { total: 0, finalizados: 0, pendentes: 0 }, defeitos: [], dias: [] });
-    } finally {
-      setIsFiltrando(false);
-    }
-  };
-
-  useEffect(() => {
-    carregarEstatisticas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleAplicarFiltros = () => {
-    if (hasRangeInvalido) {
-      showAlert("Periodo invalido: a data inicial nao pode ser maior que a data final.", "warning");
-      return;
-    }
-
-    carregarEstatisticas({ dataInicial, dataFinal });
-  };
-
-  const handleLimparFiltros = () => {
-    setDataInicial("");
-    setDataFinal("");
-    carregarEstatisticas();
-  };
-
-  const defeitosBarData = useMemo(() => {
-    if (!stats) {
-      return { labels: [], values: [] };
-    }
-
-    const labels = stats.defeitos.map((item) => item.defeito || "Nao informado");
-    const values = stats.defeitos.map((item) => Number(item.quantidade || 0));
-
-    return { labels, values };
-  }, [stats]);
-
-  const evolucaoDiasData = useMemo(() => {
-    if (!stats) {
-      return { labels: [], values: [] };
-    }
-
-    const labels = stats.dias.map((item) => item.data || "-");
-    const values = stats.dias.map((item) => Number(item.quantidade || 0));
-
-    return { labels, values };
-  }, [stats]);
-
-  const periodoAtivoLabel = useMemo(() => {
-    const formatar = (dataIso) => {
-      if (!dataIso || !dataIso.includes("-")) {
-        return dataIso || "-";
-      }
-
-      return dataIso.split("-").reverse().join("/");
-    };
-
-    if (dataInicial && dataFinal) {
-      return `Periodo: ${formatar(dataInicial)} ate ${formatar(dataFinal)}`;
-    }
-
-    if (dataInicial) {
-      return `Periodo: a partir de ${formatar(dataInicial)}`;
-    }
-
-    if (dataFinal) {
-      return `Periodo: ate ${formatar(dataFinal)}`;
-    }
-
-    return "Periodo: geral (sem filtro)";
-  }, [dataInicial, dataFinal]);
-
-  if (!stats) {
+  if (isLoading) {
     return <Loading />;
   }
 
@@ -161,7 +60,7 @@ export default function PainelGestor() {
           <Button
             variant="outlined"
             startIcon={<ArrowBackIcon />}
-            onClick={() => navigate("/dashboard")}
+            onClick={goToDashboard}
           >
             Voltar ao Dashboard
           </Button>

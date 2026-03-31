@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { AuthContext } from "./AuthContextObject";
-import { getFriendlyApiErrorMessage, loginUser } from "../services/api";
+import { getFriendlyApiErrorMessage, loginUser } from "../../../services/api";
 
 const AUTH_STORAGE_KEY = "auth_user";
 
@@ -26,7 +26,6 @@ export function AuthProvider({ children }) {
         return { success: false, message: data.message };
       }
 
-      // Se deu sucesso, salva o usuário que veio lá do PostgreSQL
       setUser(data.user);
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
 

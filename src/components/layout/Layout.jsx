@@ -8,7 +8,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../features/auth";
 
 export default function Layout({ children }) {
   const navigate = useNavigate();

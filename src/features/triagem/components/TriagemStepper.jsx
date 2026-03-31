@@ -17,15 +17,15 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAlert } from "../../hooks/useAlert";
+import { useAlert } from "../../../hooks/useAlert";
 import {
   conteudoOptions,
   defeitoOptions,
   motivoOptions,
   operadorOptions,
-} from "../../data/triagemOptions";
-import { useAuth } from "../../hooks/useAuth";
-import { getFriendlyApiErrorMessage, salvarTriagem } from "../../services/api";
+} from "../../../data/triagemOptions";
+import { useAuth } from "../../auth";
+import { getFriendlyApiErrorMessage, salvarTriagem } from "../../../services/api";
 
 const steps = ["Identificacao", "Equipamento", "Diagnostico", "Conclusao"];
 
@@ -209,7 +209,7 @@ export default function TriagemStepper() {
     }
 
     setActiveStep((previous) => previous + 1);
-  }, [formData, isEditing, isLastStep, navigate, showAlert, user?.id]);
+  }, [formData, isEditing, isLastStep, navigate, showAlert, user]);
 
   const handleBack = () => {
     setActiveStep((previous) => previous - 1);

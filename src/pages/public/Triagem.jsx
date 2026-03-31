@@ -2,7 +2,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Box, Button, Container, CssBaseline } from "@mui/material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
-import TriagemStepper from "../../sections/triagem/TriagemStepper";
+import { TriagemStepper } from "../../features/triagem";
 
 const triagemTheme = createTheme({
   palette: {

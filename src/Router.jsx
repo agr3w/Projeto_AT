@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import Layout from "./components/layout/Layout";
 import Loading from "./components/ui/Loading";
-import { useAuth } from "./hooks/useAuth";
+import { useAuth } from "./features/auth";
 
 const DashboardTriagem = lazy(() => import("./pages/public/DashboardTriagem"));
 const Login = lazy(() => import("./pages/public/Login"));

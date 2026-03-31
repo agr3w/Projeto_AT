@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import {
   Autocomplete,
   Box,
@@ -15,7 +15,8 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import DateRangeFilters from "../filters/DateRangeFilters";
+import DateRangeFilters from "../../shared/components/DateRangeFilters";
+import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
 
 const DashboardFilters = memo(function DashboardFilters({
   filtros,
@@ -30,6 +31,40 @@ const DashboardFilters = memo(function DashboardFilters({
   handleAplicarFiltros,
   handleLimparFiltros,
 }) {
+  const [searchInput, setSearchInput] = useState(filtros.searchTerm);
+  const [numeroChamadoInput, setNumeroChamadoInput] = useState(filtros.numeroChamado);
+
+  const debouncedSearchInput = useDebouncedValue(searchInput, 220);
+  const debouncedNumeroChamadoInput = useDebouncedValue(numeroChamadoInput, 220);
+
+  useEffect(() => {
+    setFiltro("searchTerm", debouncedSearchInput);
+  }, [debouncedSearchInput, setFiltro]);
+
+  useEffect(() => {
+    setFiltro("numeroChamado", debouncedNumeroChamadoInput);
+  }, [debouncedNumeroChamadoInput, setFiltro]);
+
+  const hasTextoPendente = useMemo(
+    () => searchInput !== filtros.searchTerm || numeroChamadoInput !== filtros.numeroChamado,
+    [searchInput, numeroChamadoInput, filtros.searchTerm, filtros.numeroChamado],
+  );
+
+  const hasPendenciaAplicacao = hasAlteracoesNaoAplicadas || hasTextoPendente;
+
+  const handleApplyClick = () => {
+    handleAplicarFiltros({
+      searchTerm: searchInput,
+      numeroChamado: numeroChamadoInput,
+    });
+  };
+
+  const handleClearClick = () => {
+    setSearchInput("");
+    setNumeroChamadoInput("");
+    handleLimparFiltros();
+  };
+
   return (
     <Paper elevation={2} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
       <Grid container spacing={2}>
@@ -37,8 +72,8 @@ const DashboardFilters = memo(function DashboardFilters({
           <TextField
             fullWidth
             label="Buscar por Codigo de Rastreio ou MAC Address"
-            value={filtros.searchTerm}
-            onChange={(event) => setFiltro("searchTerm", event.target.value)}
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
           />
         </Grid>
 
@@ -89,8 +124,8 @@ const DashboardFilters = memo(function DashboardFilters({
           <TextField
             fullWidth
             label="Numero do Chamado"
-            value={filtros.numeroChamado}
-            onChange={(event) => setFiltro("numeroChamado", event.target.value)}
+            value={numeroChamadoInput}
+            onChange={(event) => setNumeroChamadoInput(event.target.value)}
           />
         </Grid>
 
@@ -126,12 +161,12 @@ const DashboardFilters = memo(function DashboardFilters({
             <Button
               variant="contained"
               color={hasFiltrosAtivos ? "secondary" : "primary"}
-              onClick={handleAplicarFiltros}
-              disabled={hasRangeInvalido || !hasAlteracoesNaoAplicadas}
+              onClick={handleApplyClick}
+              disabled={hasRangeInvalido || !hasPendenciaAplicacao}
             >
               Aplicar filtros
             </Button>
-            <Button variant="outlined" onClick={handleLimparFiltros}>
+            <Button variant="outlined" onClick={handleClearClick}>
               Limpar filtros
             </Button>
           </Box>
@@ -149,7 +184,7 @@ const DashboardFilters = memo(function DashboardFilters({
               : "Sem filtros ativos"
           }
         />
-        {hasAlteracoesNaoAplicadas && (
+        {hasPendenciaAplicacao && (
           <Typography variant="caption" color="text.secondary">
             Existem alteracoes pendentes. Clique em Aplicar filtros.
           </Typography>

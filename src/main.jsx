@@ -4,7 +4,7 @@ import { CssBaseline, ThemeProvider } from '@mui/material'
 import { BrowserRouter } from 'react-router-dom'
 import Router from './Router.jsx'
 import { AlertProvider } from './contexts/AlertContext.jsx'
-import { AuthProvider } from './contexts/AuthContext.jsx'
+import { AuthProvider } from './features/auth'
 import theme from './theme.js'
 
 createRoot(document.getElementById('root')).render(
